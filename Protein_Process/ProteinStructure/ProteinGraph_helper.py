@@ -13,7 +13,7 @@ import random
 
 import networkx as nx # for graph similarity
 
-import Sequence_helper
+import pdb_helper
 
 LETTERS = string.ascii_uppercase
 ss_map3_dict = {'H':'H','G':'H','I':'H','E':'E','B':'E','S':'C','T':'C','-':'C','C':'C'}
@@ -298,7 +298,7 @@ class Protein_Graph(object):
                     seq_processed += protein_dict[index]['AminoAci'] 
 
         if sequence_ref and sequence_ref != seq_processed:
-            align_flag, seq_padding, sequence_ref_new = Sequence_helper.seq_truncate(seq_processed,sequence_ref)
+            align_flag, seq_padding, sequence_ref_new = pdb_helper.seq_truncate(seq_processed,sequence_ref)
             if not align_flag:
                 print('Error! The sequence and the reference sequence do not match!')
                 print(seq_processed)
