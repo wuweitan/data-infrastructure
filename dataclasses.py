@@ -10,6 +10,19 @@ class ProtPairs:
 	def loadData(self):
 		pass
 
+# TODO1: which domains are interacting with each other (write the class template)
+# TODO2: The atom availability statistics of the pdb
+# TODO3: Complete the complex class
+
+class AtomStatistics(ProtPairs):
+	def __init__(self, Input = None, re_path = 'data'):
+		super(Seq, self).__init__(Input, re_path)
+
+	def loadData(self):
+		pass
+
+	def getAtomStatForEachUniprot(self): # return [[chain_id4Uni1,'Atom Availability Statisctics'], [chain_id4Uni2,'Atom Availability Statisctics']]
+
 class Complex(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
 		super(Seq, self).__init__(Input, re_path)
@@ -29,6 +42,16 @@ class Seq(ProtPairs):
 		pass
 
 	def getSeqInfoForEachUniprot(self): #(return [[chain_id4Uni1, sequences4CorChains], [chain_id4Uni2, sequences4CorChains]])
+		pass
+
+class Domain(ProtPairs):
+	def __init__(self, Input = None, re_path = 'data'):
+		super(Seq, self).__init__(Input, re_path)
+
+	def loadData(self):
+		pass
+
+	def getInteractingDomainInfoForPDB(self): # return # 'interacting doamin pairs' # 'NoEvidence'
 		pass
 
 
