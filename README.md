@@ -9,6 +9,7 @@ We start with some good example repos and learn the best from them
 
 ### Plan:
 Dataset class:
+
 1. Quiry on data (for user):
 
 1.1 Raw data.
