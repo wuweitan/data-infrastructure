@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 from utils_compound import read_graph
+import requests
+import json
 
 
 class dataset_protComp_pair:
@@ -40,6 +42,14 @@ class dataset_protComp_pair:
         comp_x, comp_adj = read_graph(smile, len_max)
         assert not comp_x is None, 'This smile is not convertable.'
         return comp_x, comp_adj
+
+    def rcsb_graphql_query(self, pdb, chain): # perform rcsb graphql query, detailed attributes if you need more, please see https://data.rcsb.org/data-attributes.html
+        '''
+        input: pdb id and chain
+        output: alignment query information
+        '''
+        info = json.loads(requests.post("https://data.rcsb.org/graphql", json={"query": "query($instance_ids:String!){polymer_entity_instances(instance_ids:[$instance_ids]){polymer_entity{rcsb_polymer_entity_align{aligned_regions{ref_beg_seq_id}}}rcsb_polymer_entity_instance_container_identifiers{auth_to_entity_poly_seq_mapping}}}", "variables": {"instance_ids":pdb+'.'+chain}}).text)
+        return info
 
 
 class dataset_deepaffinity(dataset_protComp_pair):

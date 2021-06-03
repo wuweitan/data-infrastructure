@@ -17,3 +17,5 @@ Dataset class:
   * Convert protein sequence to tokenized sequence. [Done]
   * Conver compound smile to graphs. [Done]
   * Dataset split based on similarity (need to cross-talk).
+  * RCSB GraphQL query demo [Done]
+
