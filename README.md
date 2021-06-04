@@ -11,7 +11,7 @@ We start with some good example repos and learn the best from them
 Dataset class:
 
 * Quiry on data (for user):
-  * Raw data + (more interaction label).
+  * Raw data + (more interaction label, ref MONN and talk2 rujie).
   * Processed data. [Done]
 * Functions to process data (for developer):
   * Convert protein sequence to tokenized sequence. [Done]
