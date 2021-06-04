@@ -2,8 +2,8 @@ import numpy as np
 from prody import *
 import re, sys
 
-class Pfam_sequence():
-  """Pfam sequence module
+class SequenceStatisticsClass():
+  """statistical count class for Pfam sequence
      Provides functions to process pfam sequence data. e.g. MSA in 'selex', 'stockholm' and 'fasta' format
      Currently only support processing 'stockholm' format, others will be added later.
 
