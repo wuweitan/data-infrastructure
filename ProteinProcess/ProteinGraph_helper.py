@@ -13,68 +13,12 @@ import random
 
 import networkx as nx # for graph similarity
 
+from pdb_helper import read_pdb
+from auxiliary_funtions import remove
 import pdb_helper
 
 LETTERS = string.ascii_uppercase
 ss_map3_dict = {'H':'H','G':'H','I':'H','E':'E','B':'E','S':'C','T':'C','-':'C','C':'C'}
-
-#***********************************************************************************************************
-
-def remove(string,char):
-    '''
-    Remove the character in a string.
-    '''
-    #string_char = [i for i in string.split(char) if i != '']
-    #return string_char[0]
-    string_char = string.split(char)
-    return ''.join(string_char)
-
-#***********************************************************************************************************
-
-def read_pdb(pdb_file):
-    '''
-    Extract the residue information inside a pdb file.
-    '''
-    protein_dict = {}
-    index_dict = {} # The indexes of the residues. Two level: the first is for the number, the second is for the letter.
-                    # e.g. '100', '100A', '100B','101','102'...then the dictionary is {...,100:[' ','A','B'],101:[' '],...}
-    with open(pdb_file,'r') as p_file:
-        lines = p_file.readlines()
-        for line in lines:
-            if line[0:4] == 'ATOM':
-                ### residue-wise info ###
-                if line[16] == ' ' or line[16] == 'A' or line[16] == '1':
-                    atom = remove(line[12:16],' ')
-                else:
-                    atom = remove(line[12:16],' ') + '_' + line[16]
-                resi = line[17:20]
-                chain = line[21]
-                index_all = remove(line[22:27],' ')
-                index = int(remove(line[22:26],' '))
-                insertion_code = line[26]
-                ### atom-wise info ###
-                x = float(remove(line[30:38],' '))
-                y = float(remove(line[38:46],' '))
-                z = float(remove(line[46:54],' '))
-                occupancy = float(remove(line[54:60],' '))
-                temp_factor = float(remove(line[60:66],' '))
-        ############ Judge whether a new chain begins. ########################      
-                if not chain in protein_dict.keys():
-                    protein_dict[chain] = {}
-                    index_dict[chain] = {}
-        ############ Save the sequence infomation. ######################## 
-                if not index_all in protein_dict[chain].keys():
-                    protein_dict[chain][index_all] = {'index':index,'insertion_code':insertion_code,'resi':resi}
-                    if not index in index_dict[chain]:
-                        index_dict[chain][index] = [insertion_code]
-                    else:
-                        index_dict[chain][index].append(insertion_code)
-                elif resi != protein_dict[chain][index_all]['resi']:
-                    print('PDB read error! The residue kind of resi %s is not consistent for %s!'%(index_all,pdb_file))
-                    return 0
-                if not atom in protein_dict[chain][index_all].keys():
-                    protein_dict[chain][index_all][atom] = [x,y,z,occupancy,occupancy,temp_factor]  
-    return protein_dict, index_dict
 
 #***********************************************************************************************************
 
