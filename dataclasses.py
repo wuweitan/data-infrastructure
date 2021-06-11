@@ -19,6 +19,7 @@ class ProtPairs:
 
 	def loadData(self):
 		pass
+
 # May 28
 # TODO1: which domains are interacting with each other (write the class template)
 # TODO2: The atom availability statistics of the pdb
@@ -50,14 +51,14 @@ class ChainStatistics(ProtPairs):
 
 		dict_resStat = {}
 		pdbl = PDBList()
-    	pdbl.retrieve_pdb_file(self.PDBid)
+		pdbl.retrieve_pdb_file(self.PDBid)
 
-    	parser = MMCIFParser()
-    	path_to_cif = self.PDBid[1]+self.PDBid[2]+'/'+self.PDBid+'.cif'
+		parser = MMCIFParser()
+		path_to_cif = self.PDBid[1]+self.PDBid[2]+'/'+self.PDBid+'.cif'
 
-    	structure = parser.get_structure(self.PDBid, path_to_cif)
+		structure = parser.get_structure(self.PDBid, path_to_cif)
 
-    	uniprot_list = [self.uni1, self.uni2]
+		uniprot_list = [self.uni1, self.uni2]
 
 		if not self.uniToChain_dict:
 			
