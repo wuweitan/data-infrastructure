@@ -127,6 +127,9 @@ def assembly_extract(pdb):
 
     return None
 
+def pdb_indexing(pdb, version = 'Kabat'):
+    return None
+
 #************************************* sequence process *************************************************
 
 def seq_extraction(pdb,absolute_position=True):
