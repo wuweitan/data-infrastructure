@@ -4,17 +4,15 @@ import re,os,requests,sys,random
 import json
 from json import JSONEncoder
 import matplotlib.pyplot as plt
-import lmdb
-import pickle as pkl
 
-def uniChainMapping(working_dir,pdb_id, unpAcc_list):
+def uniChainMapping(pdb_id, unpAcc_list):
   """
 
   Find out the mapping from 2 uniprot ids to their corresponding chains through RCSB PDB APIs.
 
 
   Input:
-  1.. unpAcc_list
+  1. unpAcc_list
   2. pdb_id
 
   Output:
