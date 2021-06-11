@@ -6,3 +6,7 @@ We start with some good example repos and learn the best from them
 * [atom3d](https://github.com/drorlab/atom3d)
 * [deepchem](https://github.com/deepchem/deepchem)
 * [TDC](https://github.com/mims-harvard/TDC)
+
+
+## resources for data
+* https://zenodo.org/
