@@ -29,7 +29,7 @@ class ProtPairs:
 # TODO2: find the mapping from chain ids to the seq
 
 # Jnue 11
-# TODO1: a function for finding the author index for a given chain
+# TODO1: write a function for finding the author index for a given chain
 # TODO2: complete class ChainStatistics
 
 
