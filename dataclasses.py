@@ -1,24 +1,28 @@
 import atomium
-import uniChainMapping
+from uniChainMapping import *
+from chainAuthIndexMapping import *
+from getGlyCbPos import *
 import numpy as np
 from Bio.PDB import *
 from os import path
 
+
 class ProtPairs:
 	def __init__(self, Input = None, re_path = 'data'): # for every row, [uniprot1, uniprot2, pdbid]
 		self.re_path = re_path
-		if not Input:
-			dt = self.loadData()
-		else:
-			dt = Input
-		self.dataList = dt
-		self.PDBid = dt[2].lower()
-		self.uni1 = dt[0]
-		self.uni2 = dt[1]
+		self.dataList = None
+		self.PDBid = None
+		self.uni1 = None
+		self.uni2 = None
 		self.uniToChain_dict = None
 
-	def loadData(self):
-		pass
+		if Input:
+			dt = Input
+			self.dataList = dt
+			self.PDBid = dt[2].lower()
+			self.uni1 = dt[0]
+			self.uni2 = dt[1]
+			self.uniToChain_dict = None
 
 # May 28
 # TODO1: which domains are interacting with each other (write the class template)
@@ -32,6 +36,11 @@ class ProtPairs:
 # Jnue 11
 # TODO1: write a function for finding the author index for a given chain
 # TODO2: complete class ChainStatistics
+
+# June 17
+# TODO1: fixed the part about loading the preprocessed data
+# TODO2: position C-beta for Glycine
+
 
 
 
@@ -48,6 +57,10 @@ class ChainStatistics(ProtPairs):
 		1. dict_resStat ({chain_assym_id : ratio_of_unmodeled_to_total_residue})
 
 		"""
+
+		if not Input:
+			return np.load(re_path+"/dict_resStat.npy")
+
 
 		dict_resStat = {}
 		pdbl = PDBList()
@@ -89,6 +102,7 @@ class ChainStatistics(ProtPairs):
 
 
 
+
             	
 
 		
@@ -106,6 +120,10 @@ class Complex(ProtPairs):
 		super().__init__(Input, re_path)
 
 	def getComplexInfoForPDB(self): # return 'Ass' # 'AsymmetricUnit' # 'NoEvidence'
+
+		if not Input:
+			return np.load(re_path+"/ComplexInfo.npy")
+
 		pdb3 = atomium.fetch(self.PDBid)
 		if len(pdb3.assemblies) == 0:
 			return 'AsymmetricUnit'
@@ -127,6 +145,10 @@ class Seq(ProtPairs):
 		Output dictionary (chainid : sequences)
 	
 		"""
+
+		if not Input:
+			return np.load(re_path+"/SeqInfo.npy")
+
 		dict_chainSeq = {}
 		uniprot_list = [self.uni1, self.uni2]
 		mapp = uniChainMapping(self.PDBid, uniprot_list)
