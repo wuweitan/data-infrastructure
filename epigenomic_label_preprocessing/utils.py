@@ -1,9 +1,16 @@
 import numpy as np
 
+"""
+Downloading, preprocessing the genome sequence and epigenomic events paired data. The current file is based on the hg19.  
+"""
+
 chr_index = ['chr1', 'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr2', 'chr20', 'chr21', 'chr22', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chrX', 'chrY']
 chr_length = np.array([249250621, 135534747, 135006516, 133851895, 115169878, 107349540, 102531392, 90354753, 81195210, 78077248, 59128983, 243199373, 63025520, 48129895, 51304566, 198022430, 191154276, 180915260, 171115067, 159138663, 146364022, 141213431, 155270560, 59373566])
 
 def prepare_whole_genome_bed_file(chr_index, chr_length, region_length, output_path):
+	"""
+	Generate a bed files contains all candidate regions.  
+	"""
 	with open(output_path + 'whole.bed', 'w+') as f:
 		for i in range(len(chr_length)):
 			chr_length[i] = (chr_length[i] // region_length)
@@ -11,6 +18,10 @@ def prepare_whole_genome_bed_file(chr_index, chr_length, region_length, output_p
 				f.write(str(chr_index[i] + '\t' + str(index*region_length) + '\t' + str(index * region_length + region_length) + '\n'))
 
 def convert_peak_to_binary(input_path, output_path, chr_length, bed_file_list_name, region_length):
+	"""
+	Read the a peaking calling result, .narrowPeak, convert the peak regions into the binary label for each candidate regions. 
+	For a given candidate region, if more than 50% of is covered by a peak region, then we assign a positive label to that candidate region. Otherwise, we assign a negative label.
+	"""
 	chr_start_coordinates = [0]
 	for i in range(len(chr_length)):
 		chr_start_coordinates.append(chr_start_coordinates[i] + (chr_length[i] // 200))
@@ -55,6 +66,10 @@ def convert_peak_to_binary(input_path, output_path, chr_length, bed_file_list_na
 		np.save(output_path + 'boolean_' + avail_files[file_index], np.array(output, dtype = 'bool'))
 
 def merge_binary_label(input_path, output_path, chip_bed_file_list_name):
+	"""
+	After all peak calling results are converted into binary labels. 
+	This function will read all binary labels and get all selected regions(the regions with at least one positive labels, note as M regions)
+	"""
 	bed_list = open(input_path + chip_bed_file_list_name).readlines()
 	avail_files = []
 	for i in range(len(bed_list)):
@@ -66,6 +81,10 @@ def merge_binary_label(input_path, output_path, chip_bed_file_list_name):
 	np.save(output_path + 'chip_boolean.npy', np.array(chip_boolean, dtype = 'bool'))
 
 def write_selected_region_to_bed(input_path, output_path, output_bed_name):
+	"""
+	After the interested regions are selected(from merge_binary_label), 
+	this function will write a .bed file, showing the detailed genome coordinates for all selected regions.
+	"""
 	bed = open(input_path + 'whole.bed').readlines()
 	boolean = np.load(input_path + 'chip_boolean.npy')
 	output = []
@@ -77,6 +96,10 @@ def write_selected_region_to_bed(input_path, output_path, output_bed_name):
 		output_file.writelines(output[i])
 
 def select_regions_on_all_peak_fils(input_path, output_path, selected_region, bed_file_list):
+	"""
+	Based on the TF features, the interested regions have been selected.
+	This function will filter the candidate regions for other epigenomic events, only the TF selected regions are left.
+	"""
 	origin_bed_list = open(input_path + bed_file_list).readlines()
 	avail_files = []
 	for i in range(len(origin_bed_list)):
@@ -88,6 +111,10 @@ def select_regions_on_all_peak_fils(input_path, output_path, selected_region, be
 		np.save(output_path + 'filtered_' + avail_files[file_index], np.array(output, dtype = 'bool'))
 
 def perpare_final_binary_label_matrix(input_path, output_path, bed_file_list, output_name):
+	"""
+	This function will prepare a N*M matrix, where N is the number of the interested epigenomic events. M is the selected regions.
+	1 in this matrix means there is a peak(covering more than 50%). 0 means less than 50% of the given region is covered by the given epigenomic event peak.
+	"""
 	origin_bed_list = open(input_path + bed_file_list).readlines()
 	avail_files = []
 	for i in range(len(origin_bed_list)):
