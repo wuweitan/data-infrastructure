@@ -4,11 +4,14 @@ import os
 """
 This will download the chromatin structure data, .hic, process the interaction frequency.
 This code require the juicer tools.
+This is based on hg19, which can be easily changed to hg38 or other reference version.
 """
 
 def download_hic(path, hic_name):
     """
     This function download the chromatin structure data, .hic file.
+    'path' is the folder to save the downloaded experiment data.
+    'hic_name' is the ENCODE project name for the wanted hic experiment.
     """
     wget.download('https://www.encodeproject.org/files/' + hic_name + '/@@download/' + hic_name_i + '.hic', out = path)
 
@@ -16,6 +19,11 @@ def extract_if_from_hic(path, juicer_path, hic_name, resolution, normalize_metho
     """
     By calling juicer tools, extract the interaction frequency from the .hic file. multiple interaction frequency resolution, normalizion methods can be selected.
     You may get more information about juicer usage by checking the github https://github.com/aidenlab/juicer/wiki/Juicer-Tools-Quick-Start
+    'path' is the working directory, used to save and process the .hic file.
+    'juicer_path' is the path to the juicer tools.
+    'hic_name' is the ENCODE project experiment name for the analyzed .hic data.
+    'resolution' is the chromatin structure resolution. It can be determined by the .hic file. Usually choose 100000 or 1000000.
+    'normalized_method' is the normalization method we want to use, VC, NONE, etc.
     """
     output_path = path + 'if_matrix_' + resolution + '/'
     if not os.path.exists(output_path):
@@ -29,6 +37,9 @@ def extract_if_from_hic(path, juicer_path, hic_name, resolution, normalize_metho
 def if_txt_to_npy(path, hic_name, resolution):
     """
     This function convert the juicer tool output text file into numpy array. The output is a chromatin-chromatin pairwise result.
+    'path' is the processed chromatin structure and the output will be saved.
+    'hic_name' is the encode project experiment name for the given .hic.
+    'resolution' is the selected chromatin structure resolution.
     """
     list_chr = list(np.concatenate((np.arange(22) + 1, np.array(['X', 'Y', 'M']))))
     for chr_i in range(len(list_chr)):
@@ -62,6 +73,9 @@ def if_txt_to_npy(path, hic_name, resolution):
 def merge_if_npy(path, hic_name, resolution):
     """
     This function merge the chromatin-chromatin pairwise result into a whole genome numpy array.
+    'path' is the processed chromatin structure and the output will be saved.
+    'hic_name' is the encode project experiment name for the given .hic.
+    'resolution' is the selected chromatin structure resolution.
     """
     chr_length = np.array([249250621, 243199373, 198022430, 191154276, 180915260, 171115067, 159138663, 146364022, 141213431, 135534747, 135006516, 133851895, 115169878, 107349540, 102531392, 90354753, 81195210, 78077248, 59128983,  63025520, 48129895, 51304566, 155270560, 59373566, 16571])
     list_chr = list(np.concatenate((np.arange(22) + 1, np.array(['X', 'Y', 'M']))))
