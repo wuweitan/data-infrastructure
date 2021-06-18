@@ -16,7 +16,7 @@ def getGlyCbPos(residue):
 	1. cb (The position coordinates vector for C Beta)
 
 	"""
-	
+
 	# check if n/c/ca coordinate info exists. (If no, return None)
 	try:
 		# get atom coordinates as vectors
@@ -35,5 +35,6 @@ def getGlyCbPos(residue):
 	cb_at_origin = n.left_multiply(rot)
 	# put on top of ca atom
 	cb = cb_at_origin + ca
+	cb = list(cb)
 
 	return cb

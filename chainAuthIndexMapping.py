@@ -1,7 +1,7 @@
 def chainAuthIndexMapping(pdb_id, chain_id):
 	"""
 
-	find out the list of author defined indices for the specified chain id
+	find out the list of pdb author defined indices for the specified chain id
 
 	Input
 	1. pdb_id
