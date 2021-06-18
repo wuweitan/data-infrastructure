@@ -7,12 +7,12 @@ To do: add the pipeline that can select the ENCODE experiment given the cell lin
 epigenomic_label_preprocessing(requires numpy)
 Provide a list of the N ENCODE experiments(right now uses the ENCODE experiment ID, will be replaced by the combination of cell line and epigenomic events later. The epigenomic events list, especially for TFs, may be replaced by some PDB IDs, if applicable, later.), the code will download the .narrowPeak data and convert it into binary label for the whole genome wide. Then merge all epigenomic event labels as an M*N matrix. M is the number of genome regions. N is the number of epigenomic events used.
 Detailed functions:
-prepare_whole_genome_bed_file will prepareing a bed file contains all regions(200bp or other length) for the whole genome.
-convert_peak_to_binary will convert the peak callling output files(narrowPeak) into binary labels for each region.
-merge_binary_label will merge the peak labels among different epigenomic events to find all regions we are interested in(with positive labels)
-write_selected_region_to_bed will prepare the bed files contains all regions we are interested in.
-select_regions_on_all_peak_files filter all epigenomic label files, only keep the regions we are interested in.
-prepare_final_binary_label_matrix will merge all processed epigenomic label files, we will have a M*N file.
+prepare_whole_genome_bed_file will prepareing a bed file contains all regions(200bp or other length) for the whole genome.\n
+convert_peak_to_binary will convert the peak callling output files(narrowPeak) into binary labels for each region.\n
+merge_binary_label will merge the peak labels among different epigenomic events to find all regions we are interested in(with positive labels)\n
+write_selected_region_to_bed will prepare the bed files contains all regions we are interested in.\n
+select_regions_on_all_peak_files filter all epigenomic label files, only keep the regions we are interested in.\n
+prepare_final_binary_label_matrix will merge all processed epigenomic label files, we will have a M*N file.\n
 
 hic_processing(requires numpy and encode tools juicer)
 Download .hic; extract interaction frequency from .hic. Prepare the interaction frequency matrix(chromatin structure) and genome sequence matching for training, validation and test.
