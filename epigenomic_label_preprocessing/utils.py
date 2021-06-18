@@ -1,7 +1,8 @@
 import numpy as np
 
 """
-Downloading, preprocessing the genome sequence and epigenomic events paired data. The current file is based on the hg19.  
+Downloading, preprocessing the genome sequence and epigenomic events paired data.
+This is based on hg19, which can be easily changed to hg38 or other reference version.
 """
 
 chr_index = ['chr1', 'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr2', 'chr20', 'chr21', 'chr22', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chrX', 'chrY']
@@ -9,7 +10,10 @@ chr_length = np.array([249250621, 135534747, 135006516, 133851895, 115169878, 10
 
 def prepare_whole_genome_bed_file(chr_index, chr_length, region_length, output_path):
 	"""
-	Generate a bed files contains all candidate regions.  
+	Generate a bed files contains all candidate regions.
+	'chr_index, chr_length' are the informations for the given genome reference, e.g. hg19.
+	'region_length' is the length of the each candidate region. Here we use 200bp.
+	'output_path' is where the generated bed file will be saved at.
 	"""
 	with open(output_path + 'whole.bed', 'w+') as f:
 		for i in range(len(chr_length)):
@@ -21,6 +25,11 @@ def convert_peak_to_binary(input_path, output_path, chr_length, bed_file_list_na
 	"""
 	Read the a peaking calling result, .narrowPeak, convert the peak regions into the binary label for each candidate regions. 
 	For a given candidate region, if more than 50% of is covered by a peak region, then we assign a positive label to that candidate region. Otherwise, we assign a negative label.
+	'input_path' is where the peak callling files, .narrowPeak, are saved.
+	'output_path' is where the intermediate files will be saved.
+	'chr_length' is the length of each chromosome for the given genome reference.
+	'bed_file_list_name' is the list of the peak calling files we are analyzing.
+	'region_length' is the length of the each candidate region.
 	"""
 	chr_start_coordinates = [0]
 	for i in range(len(chr_length)):
@@ -69,6 +78,9 @@ def merge_binary_label(input_path, output_path, chip_bed_file_list_name):
 	"""
 	After all peak calling results are converted into binary labels. 
 	This function will read all binary labels and get all selected regions(the regions with at least one positive labels, note as M regions)
+	'input_path' is where the preprocessed files, the binary label for all candidate regions, are saved.
+	'output_path' is where the intermediate files will be saved.
+	'chip_bed_file_list_name' is the list of all ChIP-seq, which we used to determine the interested regions from all candidate regions.
 	"""
 	bed_list = open(input_path + chip_bed_file_list_name).readlines()
 	avail_files = []
@@ -84,6 +96,9 @@ def write_selected_region_to_bed(input_path, output_path, output_bed_name):
 	"""
 	After the interested regions are selected(from merge_binary_label), 
 	this function will write a .bed file, showing the detailed genome coordinates for all selected regions.
+	'input_path' is where the 'chip_boolean.npy' file is saved, which is an array of boolean variable showing which candidate regions are selected.
+	'output_path' is where the output bed files, showing all interested regions, will be saved.
+	'output_bed_name' is the name of the output bed file.
 	"""
 	bed = open(input_path + 'whole.bed').readlines()
 	boolean = np.load(input_path + 'chip_boolean.npy')
@@ -99,6 +114,10 @@ def select_regions_on_all_peak_fils(input_path, output_path, selected_region, be
 	"""
 	Based on the TF features, the interested regions have been selected.
 	This function will filter the candidate regions for other epigenomic events, only the TF selected regions are left.
+	'input_path' is where the preprocessed binary label for all candidate regions for each epigenomic events are saved.
+	'output_path' is where the filtered, the binary label only for interested regions will be saved.
+	'selected_region' is the array of boolean variable indicating which regions have been selected as 'interested regions'.
+	'bed_file_list' is the list of all the epigenomic events we are analyzing.
 	"""
 	origin_bed_list = open(input_path + bed_file_list).readlines()
 	avail_files = []
@@ -114,6 +133,10 @@ def perpare_final_binary_label_matrix(input_path, output_path, bed_file_list, ou
 	"""
 	This function will prepare a N*M matrix, where N is the number of the interested epigenomic events. M is the selected regions.
 	1 in this matrix means there is a peak(covering more than 50%). 0 means less than 50% of the given region is covered by the given epigenomic event peak.
+	'input_path' is where the processed binary label are saved.
+	'output_path' is where the final output, the N*M matrix will be saved.
+	'bed_file_list' is the list of all the epigenomic events we are analyzing.
+	'output_name' is the name of the final output, that N*M matrix.
 	"""
 	origin_bed_list = open(input_path + bed_file_list).readlines()
 	avail_files = []
