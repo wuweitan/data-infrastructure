@@ -2,7 +2,10 @@ The main goal is to generate the genome sequence and epigenomic data pairs that 
 
 This pipeline consists two main parts, generating the genome sequence and epignomic events pairing data and generating the corresponding chromatin structure to improve the cell line specific epigenomic events analysis.
 
-To do: add the pipeline that can select the ENCODE experiment given the cell line and epigenomic events.
+To do: 
+1. Add the pipeline that can select the ENCODE experiment given the cell line and epigenomic events.
+
+2. Add the indicator for each selected genome regions and the related gene(which gene, GO terms, etc.), which can help the interpretation of each noncoding SNVs.
 
 epigenomic_label_preprocessing(requires numpy)
 Provide a list of the N ENCODE experiments(right now uses the ENCODE experiment ID, will be replaced by the combination of cell line and epigenomic events later. The epigenomic events list, especially for TFs, may be replaced by some PDB IDs, if applicable, later.), the code will download the .narrowPeak data and convert it into binary label for the whole genome wide. Then merge all epigenomic event labels as an M*N matrix. M is the number of genome regions. N is the number of epigenomic events used.
