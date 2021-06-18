@@ -22,10 +22,14 @@ prepare_final_binary_label_matrix will merge all processed epigenomic label file
 
 hic_processing(requires numpy and encode tools juicer)
 Download .hic; extract interaction frequency from .hic. Prepare the interaction frequency matrix(chromatin structure) and genome sequence matching for training, validation and test.
+
 Detailed functions:
 download_hic will download the hic files from the ENCODE.
+
 extract_if_from_hic will preprocess the hic files, using the tool juicer, to extract the chromatin pairwise interaction frequency among genome regions.
+
 if_txt_to_npy will convert the output of the juicer into the numpy for each chromatin pairs.
+
 merge_if_npy will merge all chromatin pairs interaction frequency into one genome wide interaction frequency matrix.
 
 The chromatin structure and epigenomic label are matched based on the interaction frequency matrix and selected genome region bed file.
