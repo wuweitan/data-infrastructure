@@ -1,10 +1,22 @@
 import numpy as np
 import os
 
+"""
+This will download the chromatin structure data, .hic, process the interaction frequency.
+This code require the juicer tools.
+"""
+
 def download_hic(path, hic_name):
+    """
+    This function download the chromatin structure data, .hic file.
+    """
     wget.download('https://www.encodeproject.org/files/' + hic_name + '/@@download/' + hic_name_i + '.hic', out = path)
 
 def extract_if_from_hic(path, juicer_path, hic_name, resolution, normalize_method):
+    """
+    By calling juicer tools, extract the interaction frequency from the .hic file. multiple interaction frequency resolution, normalizion methods can be selected.
+    You may get more information about juicer usage by checking the github https://github.com/aidenlab/juicer/wiki/Juicer-Tools-Quick-Start
+    """
     output_path = path + 'if_matrix_' + resolution + '/'
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -15,6 +27,9 @@ def extract_if_from_hic(path, juicer_path, hic_name, resolution, normalize_metho
                 os.system('java -jar ' + juicer_path + 'dump observed ' + normalize_method + ' ' + path + hic_name + '.hic ' + chr_i_name + ' ' + chr_j_name + ' BP ' + resolution + ' ' + output_path + hic_name + '_' + chr_i_name + '_' + chr_j_name + '.txt')
 
 def if_txt_to_npy(path, hic_name, resolution):
+    """
+    This function convert the juicer tool output text file into numpy array. The output is a chromatin-chromatin pairwise result.
+    """
     list_chr = list(np.concatenate((np.arange(22) + 1, np.array(['X', 'Y', 'M']))))
     for chr_i in range(len(list_chr)):
         for chr_j in range(len(list_chr)):
@@ -45,6 +60,9 @@ def if_txt_to_npy(path, hic_name, resolution):
                 np.save(path + hic_name + list_chr[chr_i] + '_' + list_chr[chr_j] + '.npy', output)
 
 def merge_if_npy(path, hic_name, resolution):
+    """
+    This function merge the chromatin-chromatin pairwise result into a whole genome numpy array.
+    """
     chr_length = np.array([249250621, 243199373, 198022430, 191154276, 180915260, 171115067, 159138663, 146364022, 141213431, 135534747, 135006516, 133851895, 115169878, 107349540, 102531392, 90354753, 81195210, 78077248, 59128983,  63025520, 48129895, 51304566, 155270560, 59373566, 16571])
     list_chr = list(np.concatenate((np.arange(22) + 1, np.array(['X', 'Y', 'M']))))
     chr_size = np.asarray(chr_length // resolution + 1, dtype = int)
