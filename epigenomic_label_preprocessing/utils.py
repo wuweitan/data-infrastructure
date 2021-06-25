@@ -149,3 +149,21 @@ def perpare_final_binary_label_matrix(input_path, output_path, bed_file_list, ou
 		output[:, file_index] = input	
 	np.save(output_path + output_name, np.array(output, dtype = 'bool'))
 
+def find_cloest_gene(input_path, interested_region_bed_name, output_path, gene_reference_input_path, gene_reference_name):
+	"""
+	Read the interested regions on the genome, find the cloest gene. This gene may help to interpret the effects of the noncoding region
+	It can also tell whether the mutation is in coding or noncoding region.
+	"""
+	interested_region_chr = []
+	interested_region_coor = []
+	interested_region_bed = open(input_path + interested_region_bed_name + '.bed').readlines()
+	for region_i in interested_region_bed:
+		interested_region_chr.append(region_i.split('\t')[0])
+		interested_region_coor.append(region_i.split('\t')[1])
+	interested_region_chr = np.array(interested_region_chr)
+	interested_region_coor = np.array(interested_region_coor)
+	gene_reference_gtf = open(gene_reference_input_path + gene_reference_name).readlines()
+	
+	
+	
+	
