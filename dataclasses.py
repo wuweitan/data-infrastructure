@@ -6,6 +6,9 @@ from chainUniRangeMapping import *
 import numpy as np
 from Bio.PDB import *
 from os import path
+from numpy import pi
+from Bio.PDB.vectors import Vector
+from Bio.PDB.vectors import calc_dihedral
 
 
 class ProtPairs:
@@ -16,6 +19,7 @@ class ProtPairs:
 		self.uni1 = None
 		self.uni2 = None
 		self.uniToChain_dict = None
+		self.closet_chains = [None, None]
 
 		if Input:
 			dt = Input
@@ -45,7 +49,7 @@ class ProtPairs:
 
 # June 25
 # TODO1: add a ComPDB class for constructing new PDB files with missing C-Betas added
-# TODO2: 
+# TODO2: complete the Ang class
 
 
 
@@ -201,7 +205,7 @@ class ComPDB():
 	def getNewPDBwCB(self): # return # pdb_id_wCB.cif
 
 		if not Input:
-			return np.load(re_path+"/PDBwCB")
+			return re_path+"/PDBwCB"
 
 		pdb_id = self.PDBid
 
@@ -323,8 +327,416 @@ class Ang(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
 		super().__init__(Input, re_path)
 
-	def getAngInfoForResiduePairs(self, Type = 'all'): # (Type = 'all' # 'dihedral' # 'planar')
-		pass
+	def getAngInfoForResiduePairs(self): 
+
+		if not Input:
+			return re_path+"/Angles"
+
+		
+		# Find out the pair of chains which have the most contacts (cutoff = 8 anstrong)
+
+		if not self.closet_chains[0]:
+			# Find out the corresponding chains
+			uniprot_list = [self.uni1, self.uni2]
+
+			if not self.uniToChain_dict:
+				self.uniToChain_dict = uniChainMapping(self.PDBid, uniprot_list)
+
+
+			# Find out the pdb Author Index list for each chain
+			dict_chainPDBIndex = {}
+
+			for chain_id in self.uniToChain_dict[self.uni1]:
+				dict_chainPDBIndex[chain_id] = chainAuthIndexMapping(self.PDBid, chain_id)
+			for chain_id in self.uniToChain_dict[self.uni2]:
+				dict_chainPDBIndex[chain_id] = chainAuthIndexMapping(self.PDBid, chain_id)
+
+			# Find out the Uniprot index range for each chain
+			# {chain_id : [uniprot_seq_beg, uniprot_seq_end]}
+
+			dict_chainUniRange = chainUniRangeMapping(self.PDBid, uniprot_list) 
+
+
+			# Find out the pair of chains which have the most contacts (cutoff = 8 anstrong)
+
+			pdb_id = self.PDBid
+			pdbl = PDBList()
+		    pdbl.retrieve_pdb_file(pdb_id)
+
+		    parser = MMCIFParser()
+		    path_to_cif = pdb_id[1]+pdb_id[2]+'/'+pdb_id+'.cif'
+
+		    structure = parser.get_structure(pdb_id, path_to_cif)
+
+		    dis_best = None
+		    inter_pairs = None
+		    num_contact_most = 0
+
+
+			for chain_id1 in self.uniToChain_dict[self.uni1]:
+				for chain_id2 in self.uniToChain_dict[self.uni2]:
+
+			
+				    chain_ids = [chain_id1, chain_id2]
+
+				    list_PDBIndex1 = dict_chainPDBIndex[chain_id1]
+				    list_PDBIndex2 = dict_chainPDBIndex[chain_id2]
+
+				    uniprot_seq_begs = [dict_chainUniRange[chain_id1][0],dict_chainUniRange[chain_id2][0]]
+				    uniprot_seq_ends = [dict_chainUniRange[chain_id1][1],dict_chainUniRange[chain_id2][1]]
+				    
+				    uniprot_ids = [self.uni1, self.uni2]
+				    uniprot_lens = [dict_chainUniRange[chain_id1][1]-dict_chainUniRange[chain_id1][0]+1, dict_chainUniRange[chain_id2][1]-dict_chainUniRange[chain_id2][0]+1] #######
+
+				    chain_lens = [uniprot_seq_ends[0] - uniprot_seq_begs[0]+1, uniprot_seq_ends[1] - uniprot_seq_begs[1]+1]
+				    conc_len = sum(chain_lens)
+
+
+				    # distances
+				    distances = -1.0 * np.ones((conc_len, conc_len))
+
+				    for i in range(conc_len):
+				        if i < chain_lens[0]:
+				            chain_id = chain_ids[0]
+				            res_ind_in_chain = list_PDBIndex1[i]
+				        else:
+				            chain_id = chain_ids[1]
+				            res_ind_in_chain = list_PDBIndex1[i - chain_lens[0]]
+
+				        try:
+				            res1 = structure[0][chain_id][res_ind_in_chain]
+				            if 'CA' in res1 or 'CB' in res1:
+				                distances[i][i] = .0
+				                for j in range(conc_len):
+				                    if j < i:
+				                        distances[i][j] = distances[j][i]
+				                    elif j > i:
+
+				                        if j < chain_lens[0]:
+				                            chain_id2 = chain_ids[0]
+				                            res_ind_in_chain2 = list_PDBIndex2[j]
+				                        else:
+				                            chain_id2 = chain_ids[1]
+				                            res_ind_in_chain2 = list_PDBIndex2[j - chain_lens[0]]
+
+				                        try:
+				                            res2 = structure[1][chain_id2][res_ind_in_chain2]
+
+				                            if 'CA' in res2 or 'CB' in res2:
+				                                min_dis = float('inf')
+				                                for k in res1.get_atoms():
+				                                    for l in res2.get_atoms():
+				                                        diff = k.coord - l.coord
+				                                        d = np.sqrt(np.sum(diff * diff))
+				                                        if d < min_dis:
+				                                            min_dis = d
+				                                distances[i][j] = min_dis
+
+				                            else:
+				                                pass
+
+				                        except Exception:
+				                            pass
+
+				            else:
+				                pass
+
+
+
+				        except Exception:
+				            pass
+				    
+				    # complete distances matrix
+				    comp_len = sum(uniprot_lens)
+				    dists = -1.0 * np.ones((comp_len, comp_len))
+				    
+				    # (0, unibeg[0]-1, uniend[0]-1, length[0]+unibeg[1]-1, length[0]+unibeg[1]-1, length[0]+uniend[1]-1)
+				    
+				    # Monomer is an exception
+				    for c1 in range(chain_lens[0]):
+				        for c2 in range(chain_lens[0]):
+				            dists[uniprot_seq_begs[0] -1 + c1][uniprot_seq_begs[0] -1 + c2] = distances[c1][c2]
+				            
+				    for c1 in range(chain_lens[1]):
+				        for c2 in range(chain_lens[1]):
+				            dists[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = distances[chain_lens[0]+c1][chain_lens[0]+c2]
+				    
+				    for c1 in range(chain_lens[1]):
+				        for c2 in range(chain_lens[0]):
+				            dists[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_seq_begs[0] -1 + c2] = distances[chain_lens[0]+ c1][c2]
+				    
+				    for c1 in range(chain_lens[0]):
+				        for c2 in range(chain_lens[1]):
+				            dists[uniprot_seq_begs[0] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = distances[c1][chain_lens[0]+c2]
+
+
+				    # contacts
+				    cut_off = 8
+
+				    ct_map = np.zeros((comp_len, comp_len))
+
+				    # if the distance is -1.0, then the pair is not considered (denoted as non-contacts)
+				    # 1's for contacts and 0's for non-contacts
+
+				    for i in range(comp_len):
+				        for j in range(comp_len):
+				            if dists[i][j] != -1.0 and dists[i][j] <= cut_off :
+				                ct_map[i][j] = 1
+				    if sum(sum(ct_map)) >= num_contact_most:
+				    	num_contact_most = sum(sum(ct_map))
+				    	dis_best = dist
+				    	inter_pairs = [chain_id1, chain_id2]
+
+			if num_contact_most == 0:
+				return None
+			else:
+				self.closet_chains[0] = chain_id1
+				self.closet_chains[1] = chain_id2
+				print('The interaction is between chain {} and chain {}.'.format(self.closet_chains[0], self.closet_chains[1]))
+
+		# Compute angles
+
+		# Omega (CA1-CB1-CB2-CA2)
+		Omegas = []
+
+		chain_id1 = self.closet_chains[0]
+		chain_id2 = self.closet_chains[1]
+
+		chain_ids = [chain_id1, chain_id2]
+	    list_PDBIndex1 = dict_chainPDBIndex[chain_id1]
+	    list_PDBIndex2 = dict_chainPDBIndex[chain_id2]
+
+	    uniprot_seq_begs = [dict_chainUniRange[chain_id1][0],dict_chainUniRange[chain_id2][0]]
+	    uniprot_seq_ends = [dict_chainUniRange[chain_id1][1],dict_chainUniRange[chain_id2][1]]
+	    
+	    uniprot_ids = [self.uni1, self.uni2]
+	    uniprot_lens = [dict_chainUniRange[chain_id1][1]-dict_chainUniRange[chain_id1][0]+1, dict_chainUniRange[chain_id2][1]-dict_chainUniRange[chain_id2][0]+1] #######
+
+	    chain_lens = [uniprot_seq_ends[0] - uniprot_seq_begs[0]+1, uniprot_seq_ends[1] - uniprot_seq_begs[1]+1]
+	    conc_len = sum(chain_lens)
+
+
+	    Omegas = -1.0 * np.ones((conc_len, conc_len))
+
+	    for i in range(conc_len):
+	        if i < chain_lens[0]:
+	            chain_id = chain_ids[0]
+	            res_ind_in_chain = list_PDBIndex1[i]
+	        else:
+	            chain_id = chain_ids[1]
+	            res_ind_in_chain = list_PDBIndex1[i - chain_lens[0]]
+
+	        try:
+	            res1 = structure[0][chain_id][res_ind_in_chain]
+	            if 'CA' in res1 and 'CB' in res1:
+	                Omegas[i][i] = -1.0
+	                for j in range(conc_len):
+	                    if j < i:
+	                        Omegas[i][j] = Omegas[j][i]
+	                    elif j > i:
+
+	                        if j < chain_lens[0]:
+	                            chain_id2 = chain_ids[0]
+	                            res_ind_in_chain2 = list_PDBIndex2[j]
+	                        else:
+	                            chain_id2 = chain_ids[1]
+	                            res_ind_in_chain2 = list_PDBIndex2[j - chain_lens[0]]
+
+	                        try:
+	                            res2 = structure[1][chain_id2][res_ind_in_chain2]
+
+	                            if 'CA' in res2 and 'CB' in res2:
+	                            	Omegas[i][j] = calc_dihedral(Vector(tuple(res1['CA'].coord)), Vector(tuple(res1['CB'].coord)), Vector(tuple(res2['CB'].coord)), Vector(tuple(res2['CA'].coord)))
+
+	                            else:
+	                                pass
+
+	                        except Exception:
+	                            pass
+
+	            else:
+	                pass
+
+
+
+	        except Exception:
+	            pass
+	    
+	    # complete the matrix
+	    comp_len = sum(uniprot_lens)
+	    omegas = -1.0 * np.ones((comp_len, comp_len))
+	    
+	    # (0, unibeg[0]-1, uniend[0]-1, length[0]+unibeg[1]-1, length[0]+unibeg[1]-1, length[0]+uniend[1]-1)
+	    
+	    # Monomer is an exception
+	    for c1 in range(chain_lens[0]):
+	        for c2 in range(chain_lens[0]):
+	            omegas[uniprot_seq_begs[0] -1 + c1][uniprot_seq_begs[0] -1 + c2] = Omegas[c1][c2]
+	            
+	    for c1 in range(chain_lens[1]):
+	        for c2 in range(chain_lens[1]):
+	            omegas[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = Omegas[chain_lens[0]+c1][chain_lens[0]+c2]
+	    
+	    for c1 in range(chain_lens[1]):
+	        for c2 in range(chain_lens[0]):
+	            omegas[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_seq_begs[0] -1 + c2] = Omegas[chain_lens[0] + c1][c2]
+	    
+	    for c1 in range(chain_lens[0]):
+	        for c2 in range(chain_lens[1]):
+	            omegas[uniprot_seq_begs[0] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = Omegas[c1][chain_lens[0] + c2]
+
+
+	    # Theta (N1-CA1-CB1-CB2)
+
+	    Thetas = -1.0 * np.ones((conc_len, conc_len))
+
+	    for i in range(conc_len):
+	        if i < chain_lens[0]:
+	            chain_id = chain_ids[0]
+	            res_ind_in_chain = list_PDBIndex1[i]
+	        else:
+	            chain_id = chain_ids[1]
+	            res_ind_in_chain = list_PDBIndex1[i - chain_lens[0]]
+
+	        try:
+	            res1 = structure[0][chain_id][res_ind_in_chain]
+	            if 'N' in res1 and 'CB' in res1 and 'CA' in res1:
+	                Thetas[i][i] = -1.0
+	                for j in range(conc_len):
+                        if j < chain_lens[0]:
+                            chain_id2 = chain_ids[0]
+                            res_ind_in_chain2 = list_PDBIndex2[j]
+                        else:
+                            chain_id2 = chain_ids[1]
+                            res_ind_in_chain2 = list_PDBIndex2[j - chain_lens[0]]
+
+                        try:
+                            res2 = structure[1][chain_id2][res_ind_in_chain2]
+
+                            if 'CB' in res2:
+                            	Thetas[i][j] = calc_dihedral(Vector(tuple(res1['N'].coord)), Vector(tuple(res1['CA'].coord)), Vector(tuple(res1['CB'].coord)), Vector(tuple(res2['CB'].coord)))
+
+                            else:
+                                pass
+
+                        except Exception:
+                            pass
+
+	            else:
+	                pass
+
+
+
+	        except Exception:
+	            pass
+	    
+	    # complete the matrix
+	    comp_len = sum(uniprot_lens)
+	    thetas = -1.0 * np.ones((comp_len, comp_len))
+	    
+	    # (0, unibeg[0]-1, uniend[0]-1, length[0]+unibeg[1]-1, length[0]+unibeg[1]-1, length[0]+uniend[1]-1)
+	    
+	    # Monomer is an exception
+	    for c1 in range(chain_lens[0]):
+	        for c2 in range(chain_lens[0]):
+	            thetas[uniprot_seq_begs[0] -1 + c1][uniprot_seq_begs[0] -1 + c2] = Thetas[c1][c2]
+	            
+	    for c1 in range(chain_lens[1]):
+	        for c2 in range(chain_lens[1]):
+	            thetas[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = Thetas[chain_lens[0]+c1][chain_lens[0]+c2]
+	    
+	    for c1 in range(chain_lens[1]):
+	        for c2 in range(chain_lens[0]):
+	            thetas[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_seq_begs[0] -1 + c2] = Thetas[chain_lens[0] + c1][c2]
+	    
+	    for c1 in range(chain_lens[0]):
+	        for c2 in range(chain_lens[1]):
+	            thetas[uniprot_seq_begs[0] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = Thetas[c1][chain_lens[0] + c2]
+
+	    # Phi (CA1-CB1-CB2)
+
+	    Phis = -1.0 * np.ones((conc_len, conc_len))
+
+	    for i in range(conc_len):
+	        if i < chain_lens[0]:
+	            chain_id = chain_ids[0]
+	            res_ind_in_chain = list_PDBIndex1[i]
+	        else:
+	            chain_id = chain_ids[1]
+	            res_ind_in_chain = list_PDBIndex1[i - chain_lens[0]]
+
+	        try:
+	            res1 = structure[0][chain_id][res_ind_in_chain]
+	            if 'CB' in res1 and 'CA' in res1:
+	                Phis[i][i] = -1.0
+	                for j in range(conc_len):
+                        if j < chain_lens[0]:
+                            chain_id2 = chain_ids[0]
+                            res_ind_in_chain2 = list_PDBIndex2[j]
+                        else:
+                            chain_id2 = chain_ids[1]
+                            res_ind_in_chain2 = list_PDBIndex2[j - chain_lens[0]]
+
+                        try:
+                            res2 = structure[1][chain_id2][res_ind_in_chain2]
+
+                            if 'CB' in res2:
+                            	Phis[i][j] = calc_angle(Vector(tuple(res1['CA'].coord)), Vector(tuple(res1['CB'].coord)), Vector(tuple(res2['CB'].coord)))
+
+                            else:
+                                pass
+
+                        except Exception:
+                            pass
+
+	            else:
+	                pass
+
+
+
+	        except Exception:
+	            pass
+	    
+	    # complete the matrix
+	    comp_len = sum(uniprot_lens)
+	    phis = -1.0 * np.ones((comp_len, comp_len))
+	    
+	    # (0, unibeg[0]-1, uniend[0]-1, length[0]+unibeg[1]-1, length[0]+unibeg[1]-1, length[0]+uniend[1]-1)
+	    
+	    # Monomer is an exception
+	    for c1 in range(chain_lens[0]):
+	        for c2 in range(chain_lens[0]):
+	            phis[uniprot_seq_begs[0] -1 + c1][uniprot_seq_begs[0] -1 + c2] = Phis[c1][c2]
+	            
+	    for c1 in range(chain_lens[1]):
+	        for c2 in range(chain_lens[1]):
+	            phis[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = Phis[chain_lens[0]+c1][chain_lens[0]+c2]
+	    
+	    for c1 in range(chain_lens[1]):
+	        for c2 in range(chain_lens[0]):
+	            phis[uniprot_lens[0] + uniprot_seq_begs[1] -1 + c1][uniprot_seq_begs[0] -1 + c2] = Phis[chain_lens[0] + c1][c2]
+	    
+	    for c1 in range(chain_lens[0]):
+	        for c2 in range(chain_lens[1]):
+	            phis[uniprot_seq_begs[0] -1 + c1][uniprot_lens[0] + uniprot_seq_begs[1] -1 + c2] = Phis[c1][chain_lens[0] + c2]
+
+
+
+	    ##################################################################################################
+	    # return the list [omegas, thetas, phis]
+	    return [omegas, thetas, phis]
+
+
+
+
+	    
+
+
+
+
+
+
+
 
 class Dist(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
@@ -486,6 +898,9 @@ class Dist(ProtPairs):
 
 		if num_contact_most == 0:
 			return None
+		else:
+			self.closet_chains[0] = chain_id1
+			self.closet_chains[1] = chain_id2
 
 		if Type == 'closest':
 			print('The distance type is the distance between the two closest atoms in the specified residues respectively.')
