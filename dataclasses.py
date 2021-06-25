@@ -198,7 +198,7 @@ class Domain(ProtPairs):
 	def getInteractingDomainInfoForPDB(self): # return # 'interacting doamin pairs' # 'NoEvidence'
 		pass
 
-class ComPDB():
+class ComPDB(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
 		super().__init__(Input, re_path)
 
