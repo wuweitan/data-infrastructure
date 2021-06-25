@@ -824,19 +824,34 @@ def PROTEIN_ele_center(resi_info):
 
 #********************************* for Graph Process ***************************************
 
-def to_nxGragh(A,X=None,Y=None):
-    ## for 1-channel graph
-    G = nx.Graph()
-    if Y:
-        G.graph['label'] = Y
-    node_num = A.shape[0]
-    if X.any():
+def Adjacency_to_edge_index(A_matrix):
+    """
+    Transform the adjacency matrices into edge index format.
+    """
+    if type(A_matrix) == list:
+        multiple = True
+        result = []
+        for A in A_matrix:
+            result.append(Adjacency_to_edge_index(A)[0])
+    else:
+        multiple = False
+        while(len(A_matrix.shape) > 2):
+            A_matrix = A_matrix[0]
+        result = from_scipy_sparse_matrix(csr_matrix(A_matrix))[0]
+    return result, multiple
+
+def to_nxGragh(X, A):
+    adj_dim = A.shape[0]
+    G_all = []
+    for idx in range(adj_dim):
+        G = nx.Graph()
+        node_num = X.shape[0]
         for i in range(node_num):
             G.add_node(i,feat=X[i])
-    for i in range(node_num):
-        for j in range(i+1,node_num):
-            #print(i,j,node_num)
-            if A[i,j] != 0:
-                G.add_edge(i, j, weight= A[i,j])
-                G.add_edge(j, i, weight= A[j,i])
-    return G
+        for i in range(node_num):
+            for j in range(i+1,node_num):
+                if A[idx,i,j] != 0:
+                    G.add_edge(i, j, weight= A[idx,i,j])
+                    G.add_edge(j, i, weight= A[idx,j,i])
+        G_all.append(G)
+    return G_all
