@@ -163,7 +163,17 @@ def find_cloest_gene(input_path, interested_region_bed_name, output_path, gene_r
 	interested_region_chr = np.array(interested_region_chr)
 	interested_region_coor = np.array(interested_region_coor)
 	gene_reference_gtf = open(gene_reference_input_path + gene_reference_name).readlines()
-	
-	
+	gene_reference_gene = []
+	gene_reference_type = []
+	#either exon, transcript or CDS
+	gene_reference_chr = []
+	gene_reference_start_coor = []
+	gene_reference_end_coor = []
+	for gene_i in gene_reference_gft:
+		gene_reference_gene.append(gene_i.split('\t')[8])
+		gene_reference_type.append(gene_i.split('\t')[2])
+		gene_reference_chr.append(gene_i.split('\t')[2])
+		gene_reference_start_coor.append(gene_i.split('\t')[3])
+		gene_reference_end_coor.append(gene_i.split('\t')[4])			   
 	
 	
