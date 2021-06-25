@@ -43,6 +43,10 @@ class ProtPairs:
 # TODO2: position C-beta for Glycine
 # TODO3: complete the Dist class
 
+# June 25
+# TODO1: add a ComPDB class for constructing new PDB files with missing C-Betas added
+# TODO2: 
+
 
 
 
@@ -190,6 +194,130 @@ class Domain(ProtPairs):
 	def getInteractingDomainInfoForPDB(self): # return # 'interacting doamin pairs' # 'NoEvidence'
 		pass
 
+class ComPDB():
+	def __init__(self, Input = None, re_path = 'data'):
+		super().__init__(Input, re_path)
+
+	def getNewPDBwCB(self): # return # pdb_id_wCB.cif
+
+		if not Input:
+			return np.load(re_path+"/PDBwCB")
+
+		pdb_id = self.PDBid
+
+		pdbl = PDBList()
+		pdbl.retrieve_pdb_file(pdb_id)
+
+		parser = MMCIFParser()
+		path_to_cif = pdb_id[1]+pdb_id[2]+'/'+pdb_id+'.cif'
+
+		structure = parser.get_structure(pdb_id, path_to_cif)
+
+		# read in the files
+		with open(path_to_cif, 'r') as f:
+		    in_file = f.readlines()
+
+		# build the output
+		flag1 = 0 # if 1, enter the matching area (the value part of the atom_site category)
+		out_file = []
+		last_auth_seq_id = None
+
+		dict_res_atom = {}
+
+		for i, line in enumerate(in_file):
+			out_file.append(line)
+
+			if line[0] == '#':
+				flag1 = 0
+
+			if flag1 == 1:
+				# Find out whether the Cbeta insertion should be done
+				# (All the atom info collected (check the ordinal) && Missing CB and existing CA, N, C)
+
+				# Include the atom id in the dictionary
+				dict_res_atom[line.split()[-2]] = 1
+				
+				# The ending of the residue
+				if in_file[i+1][0] == '#' or line.split()[-5] != in_file[i+1].split()[-5]:
+
+					# Determine whether CB is to be added
+					if ('CB' not in dict_res_atom) and ('CA' in dict_res_atom) and ('N' in dict_res_atom) and ('C' in dict_res_atom):
+						
+						res = structure[0][line.split()[-3]][int(line.split()[-5])]
+						CB_posit = getGlyCbPos(res)
+
+						# print(CB_posit)
+
+						# Construct the xyz coordinates with the target style
+						posit = [None, None, None] # initialized as None's
+						for q in range(3):
+							posit[q] = str(round(CB_posit[q], 3)) + ' '*(list_posit[11+q] - list_posit[10+q] - len(str(round(CB_posit[q], 3))))
+
+						out_str = line[list_posit[0]:list_posit[2]] + 'C' + ' '*(list_posit[3] - list_posit[2] - 1) + 'CB' + ' '*(list_posit[4] - list_posit[3] - 2) + line[list_posit[4]:list_posit[10]] + posit[0] + posit[1] + posit[2] + line[list_posit[13]:list_posit[19]] + 'CB' + ' '*(list_posit[20] - list_posit[19] - 2) + line[list_posit[20]:]
+						
+						#print(out_str) #######
+
+						out_file.append(out_str)
+
+					# Reset the dictionary
+					dict_res_atom = {}
+
+
+			if line[0: 21] == '_atom_site.pdbx_PDB_m':
+
+				flag1 = 1
+				ll = list(in_file[i+1])
+
+				# from the position of the first char of this item to the position of the first char of next item
+				cc = 1
+				st = 0
+
+				list_posit = [0]
+
+				while cc <= 20:
+
+					while ll[st] != ' ':
+						st += 1
+					while ll[st] == ' ':
+						st += 1
+
+					list_posit.append(st)
+
+					cc += 1
+
+
+		# Revise the _atom_site.id
+
+
+		stt = 0
+		flag1 = 0
+
+		for i, line in enumerate(out_file):
+
+			if line[0] == '#':
+				flag1 = 0
+
+			if flag1 == 1:
+				stt += 1
+				out_file[i] = line[:list_posit[1]] + str(stt) + ' '*(list_posit[2]-list_posit[1]-len(str(stt))) + line[list_posit[2]:]
+
+
+			if line[0: 21] == '_atom_site.pdbx_PDB_m':
+				flag1 = 1
+
+		print(stt)
+
+
+
+
+
+		with open(pdb_id[1]+pdb_id[2]+'/'+pdb_id+'_wCB.cif', 'w') as of:
+			of.writelines(out_file)
+
+
+
+
+
 
 class Ang(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
@@ -229,8 +357,9 @@ class Dist(ProtPairs):
 
 		# Find out the pair of chains which have the most contacts (cutoff = 8 anstrong)
 
+		pdb_id = self.PDBid
 		pdbl = PDBList()
-	    pdbl.retrieve_pdb_file(self.PDBid)
+	    pdbl.retrieve_pdb_file(pdb_id)
 
 	    parser = MMCIFParser()
 	    path_to_cif = pdb_id[1]+pdb_id[2]+'/'+pdb_id+'.cif'
