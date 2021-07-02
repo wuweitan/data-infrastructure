@@ -3,13 +3,13 @@ The main goal is to generate the genome sequence and epigenomic data pairs that 
 This pipeline consists two main parts, generating the genome sequence and epignomic events pairing data and generating the corresponding chromatin structure to improve the cell line specific epigenomic events analysis.
 
 All genomic and epigenomic labels can be used.
-1. By using the reference gene files, e.g. hg19.knownGene.gft(based on hg19 assembly, can be updated to hg38 later), each selected regions(on DNA) will be linked to the cloest gene. Later, the Gene Ontology terms will be added, to have a better understanding of the functions of the linked genes. The same GO terms can be added to the RNA level gene expression data to help the understanding of the expression changes.
+1. By using the reference gene files, e.g. hg19.knownGene.gft(based on hg19 assembly, can also use hg38 or other assembly for homo sapiens and other species), each selected regions(on DNA) will be linked to the cloest gene. RNA expression data linked to the same gene are also available. Later, the Gene Ontology terms will be added, to have a better understanding of the functions of the linked genes. The same GO terms can be added to the RNA level gene expression data to help the understanding of the expression changes.
 2. Current epigenomic labels can be processed are ChIP-seq(for Transcription factors and histone marks), DNase-seq and ATAC-seq(for chromosome accessibility) for the DNA. RNA-seq can be processed to provide the gene expression level, unfortunately, no expression data available to assess the effects of the noncoding mutations. For the general chromatin structures, HiC and ChIA-PET are available that can provide cell line specific or cell line and transcription factor specific chromatin structure.
 
 To do: 
 1. Add the pipeline that can select the ENCODE experiment given the cell line and epigenomic events.
 
-2. Add the indicator for each selected genome regions and the related gene(which gene, GO terms, etc.), which can help the interpretation of each noncoding SNVs.
+2. Add the indicator for each selected genome regions and the related gene(gene ID, GO terms, etc.), which can help the interpretation of each noncoding SNVs.
 
 epigenomic_label_preprocessing(requires numpy)
 Provide a list of the N ENCODE experiments(right now uses the ENCODE experiment ID, will be replaced by the combination of cell line and epigenomic events later. The epigenomic events list, especially for TFs, may be replaced by some PDB IDs, if applicable, later.), the code will download the .narrowPeak data and convert it into binary label for the whole genome wide. Then merge all epigenomic event labels as an M*N matrix. M is the number of genome regions. N is the number of epigenomic events used.
