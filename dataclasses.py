@@ -51,6 +51,10 @@ class ProtPairs:
 # TODO1: add a ComPDB class for constructing new PDB files with missing C-Betas added
 # TODO2: complete the Ang class
 
+# July 2
+# TODO1: make the comments for every class more complete
+# TODO2: complete the domain class
+
 
 
 
