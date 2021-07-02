@@ -133,7 +133,16 @@ class Complex(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
 		super().__init__(Input, re_path)
 
-	def getComplexInfoForPDB(self): # return 'Ass' # 'AsymmetricUnit' # 'NoEvidence'
+	def getComplexInfoForPDB(self):
+
+		"""
+		Output:
+		1. 'Ass' if there is biological assembly info for the input 
+		   'AsymmetricUnit' if there is only assymetric unit information for the input
+		   'NoEvidence' if there is only NMR info for the input or there is no such info for the input
+
+
+		"""
 
 		if not Input:
 			return np.load(re_path+"/ComplexInfo.npy")
@@ -200,7 +209,18 @@ class Domain(ProtPairs):
 		super().__init__(Input, re_path)
 
 	def getInteractingDomainInfoForPDB(self): # return # 'interacting doamin pairs' # 'NoEvidence'
-		pass
+
+		if not Input:
+			return np.load(re_path+"/interDomainPairs.npy")
+
+		dict_uniprotToDomain = np.load(re_path+"/dict_uniprotToDomain.npy")
+
+		if (uni1, uni2) in dict_uniprotToDomain:
+			return dict_uniprotToDomain[(uni1, uni2)]
+
+		if (uni2, uni1) in dict_uniprotToDomain:
+			return [dict_uniprotToDomain[(uni1, uni2)][1], dict_uniprotToDomain[(uni1, uni2)][0]]
+
 
 class ComPDB(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
