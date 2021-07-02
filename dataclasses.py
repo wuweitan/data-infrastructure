@@ -63,7 +63,7 @@ class ChainStatistics(ProtPairs):
 	def __init__(self, Input = None, re_path = 'data'):
 		super().__init__(Input, re_path)
 
-	def getChainStatForEachUniprot(self): # return [[chain_id4Uni1,'Residue Info Availability Statisctics'], [chain_id4Uni2,'Residue Info Availability Statisctics']]
+	def getChainStatForEachUniprot(self): 
 		"""
 		Find out the statistics of the unmodeled residue
 
