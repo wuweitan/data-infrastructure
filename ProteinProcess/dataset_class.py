@@ -52,9 +52,19 @@ class SingleProteinInfo(ProteinGraph_helper.PDB_information):
 
 
 class ProteinGraph(ProteinGraph_helper.Protein_Graph):
-    """
-    Calculate the features for protein graphs construction
+    """Calculate the features for protein graphs construction
     element-wise / residue-wise / atom-wise
+
+    :param pdb_file: path of the pdb file 
+    :type pdb_file: string
+    :param ss_ref: reference secondary structure sequence, defaults to None 
+    :type ss_ref: string, optional    
+    :param ss_ref: reference amino acids sequence, defaults to None 
+    :type ss_ref: string, optional
+    :param ss_kind: secondary structure version (3 or 8), default t o3
+    :type ss_kind: int, optional
+    :param treat_as_missing: whether take the residues with missing information as missing residues (or raise Errors), defaults to True 
+    :type ss_ref: booling, optional
     """
     def __init__(self, pdb_file, ss_ref=None, sequence_ref=None, ss_kind=3, treat_as_missing=True, **kwargs):
         self.data_dir = pdb_file # path of pdb file
@@ -69,8 +79,18 @@ class ProteinGraph(ProteinGraph_helper.Protein_Graph):
         self.treat_as_missing = treat_as_missing
 
 class Datasets(object):
-    """
-    Process on the benchmark datasets: SCOPe, Pfam, CATH, self-defined
+    """Process on the benchmark datasets: SCOPe, Pfam, CATH, self-defined
+
+    :param dataset: name of the database, defaults to "SCOPe" 
+    :type dataset: string, optional
+    :param path: path of the stored database
+    :type path: version, optional
+    :param path: version of the database
+    :type path: string, optional
+    :param structure: whether consider the structure samples, defaults to True 
+    :type structure: booling, optional
+    :param sequence: whether consider the sequence samples, defaults to True 
+    :type sequence: booling, optional
     """
     def __init__(self, dataset = 'SCOPe', path='../dataset/', version = '2.07',
                  structure = True, sequence = True, **kwargs):
@@ -185,6 +205,17 @@ class Datasets(object):
     def data_split(self, dataset, split_method = 'rough', ratio = [0.7, 0.15, 0.15], shuffle = True):
         '''
         Split the database into training, validation and test sets
+
+        :param dataset: A processed dataset
+        :type dataset: list
+        :param split_method: data splitting method
+        :type split_method: str, optional
+        :param ratio: data splitting ratio
+        :type ratio: list, optional
+        :param shuffle: whether shuffle the original dataset
+        :type shuffle: bool, optional
+        :return: 3 lists of the split datasets
+        :rtype: lists
         '''
         size = len(list(dataset))
         train_size = round(size * ratio[0])

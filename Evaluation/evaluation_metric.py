@@ -14,6 +14,8 @@ import pdb_helper
 def sequence_indentity(self, seq_1, seq_2, version = 'BLAST'):
     return None
 
+def structure_similarity(self, seq_1, seq_2, version = 'BLAST'):
+    return None
 
 class Sequence():
     """
