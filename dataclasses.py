@@ -55,6 +55,10 @@ class ProtPairs:
 # TODO1: make the comments for every class more complete
 # TODO2: complete the domain class
 
+# July 9
+# TODO1: start the documentation
+# TODO2: find out the mapping between the pfam data and the uniprot data
+
 
 
 
