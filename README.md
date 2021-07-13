@@ -14,7 +14,7 @@
 * Final goal: Modeling heterogeneous knowledge graph rather than isolated relations
 
 
-### Implementation
+### Implementation (protein vs compound)
 * Quiry on data (DeepAffinity, DeepRelations, Platinum):
   * Raw data: protein sequence with uniprot id, compound smile, interaction label (more interaction label by plip).
   * Processed data in npy format. [Done]
