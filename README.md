@@ -9,6 +9,8 @@
   * protein vs compound (DeepAffinity, DeepRelations, Platinum)
   * protein vs cell line (wuwei)
   * protein vs protein (rujie)
+  * protein vs function (yue)
+  * desease vs function (mostafa)
 
 
 ### Implementation
