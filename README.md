@@ -2,10 +2,14 @@
 
 ## Plan:
 
+
 ### Blueprint (Bio-knowledge graph)
-* Available onjects: protein, compound, function ontology, desease; in total 5 * 5 - 5 = 20 relationships
-* Question I can answer: modeling relationship between protein and compound
-* Under-explored questions: 19 relationships
+* Available onjects: protein, compound, function ontology, desease, cellline; in total (6 * 6 - 6) / 2 + 6 = 21 relationships
+* Question to be explored
+  * protein vs compound (DeepAffinity, DeepRelations, Platinum)
+  * protein vs cell line (wuwei)
+  * protein vs protein (rujie)
+
 
 ### Implementation
 * Quiry on data (DeepAffinity, DeepRelations, Platinum):
