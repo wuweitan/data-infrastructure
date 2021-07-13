@@ -11,6 +11,7 @@
   * protein vs protein (rujie)
   * protein vs function (yue)
   * desease vs function (mostafa)
+* Final goal: Modeling heterogeneous knowledge graph rather than isolated relationship
 
 
 ### Implementation
