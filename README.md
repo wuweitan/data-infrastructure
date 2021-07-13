@@ -2,7 +2,6 @@
 
 ### Plan:
 Dataset class:
-
 * Quiry on data (for user):
   * Raw data + (more interaction label, ref MONN and talk2 rujie).
   * Processed data. [Done]
