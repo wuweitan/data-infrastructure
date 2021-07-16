@@ -59,6 +59,10 @@ class ProtPairs:
 # TODO1: start the documentation
 # TODO2: find out the mapping between the pfam data and the uniprot data
 
+# July 16
+# TODO1: rethink the blueprint
+# TODO2: complete the mapping from the uniprot id to the pfam id(s) 
+
 
 
 
