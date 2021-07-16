@@ -1,8 +1,8 @@
-Blueprint:
-Assess the noncoding mutation impacts on the epigenetic(or epigenomic), RNA expression, phenotype.
- From the high-throughput sequencing: 
-  DNA: 3D chromatin structure, chromatin accessibility, DNA methylation, chromatin modification.
-  RNA: transcriptome(mRNA), RNA binding
+Blueprint:\
+Assess the noncoding mutation impacts on the epigenetic(or epigenomic), RNA expression, phenotype.\
+ From the high-throughput sequencing: \
+  DNA: 3D chromatin structure, chromatin accessibility, DNA methylation, chromatin modification\
+  RNA: transcriptome(mRNA), RNA binding\
 
 Summary of the sequencing methods
 3D chromatin structure: Hi-C(general chromatin structure), ChIA-PET(long-range chromatin interactions bound by protein factors), 3C-Carbon Copy(5C, scope is different from the Hi-C)
