@@ -2,14 +2,14 @@ Blueprint:\
 Assess the noncoding mutation impacts on the epigenetic(or epigenomic), RNA expression, phenotype.\
  From the high-throughput sequencing: \
   DNA: 3D chromatin structure, chromatin accessibility, DNA methylation, chromatin modification\
-  RNA: transcriptome(mRNA), RNA binding\
+  RNA: transcriptome(mRNA), RNA binding
 
-Summary of the sequencing methods
-3D chromatin structure: Hi-C(general chromatin structure), ChIA-PET(long-range chromatin interactions bound by protein factors), 3C-Carbon Copy(5C, scope is different from the Hi-C)
-Chromatin accessibility: DNase-seq, ATAC-seq, FAIRE-seq(doesn't require the permeabilization of cells or isolation of nuclei, and can analyse any cell type), MNase-seq(primarily used to sequence regions of DNA bound by histones or other chromatin-bound proteins. DNase-seq, ATAC-seq, FAIRE-seq are used for mapping Deoxyribonuclease I hypersensitive sites (DHSs))
-Chromatin interactions: ChIP-seq(detect TF or histone)
-DNA-methylation: DNAme array, WGBS(whole-genome bisulfite sequencing, detect methylated cytosines)
-Chromatin modification: Focusing on the profile of the CTCF and histone modifications.
+Summary of the sequencing methods\
+3D chromatin structure: Hi-C(general chromatin structure), ChIA-PET(long-range chromatin interactions bound by protein factors), 3C-Carbon Copy(5C, scope is different from the Hi-C)\
+Chromatin accessibility: DNase-seq, ATAC-seq, FAIRE-seq(doesn't require the permeabilization of cells or isolation of nuclei, and can analyse any cell type), MNase-seq(primarily used to sequence regions of DNA bound by histones or other chromatin-bound proteins. DNase-seq, ATAC-seq, FAIRE-seq are used for mapping Deoxyribonuclease I hypersensitive sites (DHSs))\
+Chromatin interactions: ChIP-seq(detect TF or histone)\
+DNA-methylation: DNAme array, WGBS(whole-genome bisulfite sequencing, detect methylated cytosines)\
+Chromatin modification: Focusing on the profile of the CTCF and histone modifications.\
 Transcriptome(expression level): RNA-seq, polyA RNA-seq, ...
 RNA binding: eCLIP, RNA Bind-n-Seq.
 
