@@ -60,7 +60,7 @@ class ProtPairs:
 # TODO2: find out the mapping between the pfam data and the uniprot data
 
 # July 16
-# TODO1: rethink the blueprint
+# TODO1: explore the IntAct mutations influencing interactions dataset
 # TODO2: complete the mapping from the uniprot id to the pfam id(s) 
 
 
