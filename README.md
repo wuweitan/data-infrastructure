@@ -4,13 +4,15 @@
 
 
 ### Blueprint (Bio-knowledge graph)
-* Available onjects: protein, compound, function ontology, desease, cellline; in total (6 * 6 - 6) / 2 + 6 = 21 relationships
+* Available onjects: (i) protein, (ii) compound, (iii) function ontology, (iv) desease, (v) cellline; in total (5 * 5 - 5) / 2 + 5 = 15 relationships
 * Relations to be explored
   * protein vs compound (DeepAffinity, DeepRelations, Platinum)
-  * protein vs cell line (wuwei)
+  * protein vs cellline (wuwei)
+  * cellline vs cellline (wuwei)
   * protein vs protein (rujie)
   * protein vs function (yue)
   * desease vs function (mostafa)
+  * function vs function (GO term)
 * Final goal: Modeling heterogeneous knowledge graph rather than isolated relations
 
 
