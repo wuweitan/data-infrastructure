@@ -58,7 +58,12 @@ def sequence_indentity(self, seq_1, seq_2, version = 'BLAST'):
     return identity
 
 def TM_score(self, pdb_1, pdb_2):
-    
+    '''Calculate the TM-scores between two protein structures
+
+    :param pdb_1, pdb_2: path of the pdb files
+    :type pdb_1, pdb_2: str
+    :rtype: float
+    ''' 
     command_1 = './TMalign ' + pdb_1 + ' ' + pdb_2 + ' -a'
     output_1 = os.popen(command_1)
     out_1 = output_1.read()
