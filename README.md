@@ -4,7 +4,7 @@
 
 
 ### Blueprint (Bio-knowledge graph)
-* Available onjects: (i) protein, (ii) compound, (iii) function ontology, (iv) desease, (v) cellline; in total (5 * 5 - 5) / 2 + 5 = 15 relationships
+* Available objects: (i) protein, (ii) compound, (iii) function ontology, (iv) desease, (v) cellline; in total (5 * 5 - 5) / 2 + 5 = 15 relationships
 * Relations to be explored
   * protein vs compound (DeepAffinity, DeepRelations, Platinum)
   * protein vs cellline (wuwei)
