@@ -14,10 +14,11 @@
   * desease vs function (mostafa)
   * function vs function (GO term)
 * Final goal: Modeling heterogeneous knowledge graph rather than isolated relations
-* Priority:
-  * PPI mutation effect
-  * CPI celline specific
-  * Protein graphs, hierarchy
+
+### Priority
+* PPI mutation effect
+* CPI celline specific
+* Protein graphs, hierarchy
 
 ### Implementation (protein vs compound)
 * Quiry on data (DeepAffinity, DeepRelations, Platinum):
