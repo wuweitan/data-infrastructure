@@ -15,6 +15,8 @@
   * function vs function (GO term)
 * Final goal: Modeling heterogeneous knowledge graph rather than isolated relations
 
+![](./prot_comp_subgraph.png)
+
 ### Priority
 * PPI mutation effect
 * CPI celline specific
