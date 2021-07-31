@@ -1,4 +1,4 @@
-# data-buffet
+# data-buffet (Collaborated Project with the Whole Group)
 
 ## Plan:
 
