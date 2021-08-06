@@ -19,13 +19,13 @@ This branch would provide a pipeline to deal with the protein structure database
 ## Blueprint
 A hierarchical tree will be provided (like SCOPe, to show the clusters of structures) with the statistics of each dataset. Users may refer to the statistics to select their datasets. They may also search for a benchmark dataset with the name. Once they have determined a list they can directly downloaded the processed data and then pursue the steps like data splitting, data loading, model training (require their own model) and evaluations (some classical metrics will be provided). For some unseen data the may also apply our process pipeline to deal with as long as a required format (i.e. pdb) is provided.
 
-### Search and Statistics
-
 ### Data Process
 #### For samples
 * Information Read: extract aa sequences, get ss and sa, calculate the rmsd, irmsd (for complexes) and fnat (for complexes), etc.
 * Structure represenation: gcWGAN representations (fold-level), cVAE grammar (fold-level), SSE graphs (fold-level), residue-residue graphs (structure level) and atomic graphs (structure level).
-#### For 
+#### For datasets
+* Query the datasets with the name of the benchmark DBs or a threshold (on sequence or structure similarity).
+* Data split process
 
 ### DataLoader
 * Loading the processed datasets and generate batches.
