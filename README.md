@@ -15,6 +15,8 @@
   * function vs function (GO term)
 * Final goal: Modeling heterogeneous knowledge graph rather than isolated relations
 
+![](./blueprint.png)
+
 ![](./prot_hpo_subgraph.png)
 
 ### Priority
