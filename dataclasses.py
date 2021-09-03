@@ -10,6 +10,11 @@ from numpy import pi
 from Bio.PDB.vectors import Vector
 from Bio.PDB.vectors import calc_dihedral
 
+import pickle
+import networkx as nx
+import random
+import warnings
+
 
 class ProtPairs:
 	def __init__(self, Input = None, re_path = 'data'): # for every row, [uniprot1, uniprot2, pdbid]
@@ -61,7 +66,148 @@ class ProtPairs:
 
 # July 16
 # TODO1: explore the IntAct mutations influencing interactions dataset
-# TODO2: complete the mapping from the uniprot id to the pfam id(s) 
+# TODO2: complete the mapping from the uniprot id to the pfam id(s)
+
+# July 23
+# TODO1: formulate the blueprint
+# TODO2: Construct classes for HPO
+
+
+
+
+
+class HPO:
+	def __init__(self, Input = None):
+		self.Input = Input
+		self.list_HPO_terms = []
+		self.Graph = None
+
+		# parse the Input to a list of HPO terms
+		if Input:
+			for Term in Input:
+				self.list_HPO_terms.append(Term)
+
+	def getDirectedAcyclicGraph(self):
+		'''
+		retrieve the relevant graph of the whole HPO graph using a networkx graph instance
+		'''
+
+		if not self.Input:
+			return pickle.load(wholeHPOgraph.pkl)
+
+		altIdDict = pickle.load(altIdDict.pkl)
+		idDict = pickle.load(idDict.pkl)
+
+		# A universal set recording the already visited nodes
+		U_set = set()
+
+		for Term in self.list_HPO_terms:
+
+			# A queue with nodes denoted with their ids
+			queue = list()
+
+			# When exploring, 1. Only append the node to the queue when there is no such node in the universal set
+			#                 2. Add an edge between the current node and EVERY NEWLY FOUND node
+
+			HPO_term = Term # Also the node id
+			if HPO_term in altIdDict:
+			    HPO_term = altIdDict[HPO_term]
+			    print("the starting node is an alternative id")
+
+			# Add the starting node to the graph
+			G.add_node(HPO_term)
+
+			queue.append(HPO_term)
+			U_set.add(HPO_term)
+
+			while queue:
+			    nodeId = queue.pop(0)
+			    for neigh in idDict[nodeId]:
+			        # add edge
+			        G.add_edge(nodeId,neigh)
+			        # (optionally) append nodes
+			        if neigh not in U_set:
+			            U_set.add(neigh)
+			            queue.append(neigh)
+		self.Graph = G
+		return G
+
+	def drawHierarchicalGraph(self):
+		    
+		def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
+
+		    '''
+		    
+		    If the graph is a tree this will return the positions to plot this in a 
+		    hierarchical layout.
+		    
+		    G: the graph 
+		    
+		    root: the root node of current branch 
+		    - if the tree is directed and this is not given, 
+		      the root will be found and used
+		    - if the tree is directed and this is given, then 
+		      the positions will be just for the descendants of this node.
+		    - if the tree is undirected and not given, 
+		      then a random choice will be used.
+		    
+		    width: horizontal space allocated for this branch - avoids overlap with other branches
+		    
+		    vert_gap: gap between levels of hierarchy
+		    
+		    vert_loc: vertical location of root
+		    
+		    xcenter: horizontal location of root
+		    '''
+		    if not nx.is_tree(G):
+		        # raise TypeError('cannot use hierarchy_pos on a graph that is not a tree')
+		        warnings.warn("The graph is not a Tree.")
+
+
+		    if root is None:
+		        if isinstance(G, nx.DiGraph):
+		            root = next(iter(nx.topological_sort(G)))  #allows back compatibility with nx version 1.11
+		        else:
+		            root = random.choice(list(G.nodes))
+
+		    def _hierarchy_pos(G, root, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5, pos = None, parent = None):
+		        '''
+		        see hierarchy_pos docstring for most arguments
+
+		        pos: a dict saying where all nodes go if they have been assigned
+		        parent: parent of this branch. - only affects it if non-directed
+
+		        '''
+		    
+		        if pos is None:
+		            pos = {root:(xcenter,vert_loc)}
+		        else:
+		            pos[root] = (xcenter, vert_loc)
+		        children = list(G.neighbors(root))
+		        if not isinstance(G, nx.DiGraph) and parent is not None:
+		            children.remove(parent)  
+		        if len(children)!=0:
+		            dx = width/len(children) 
+		            nextx = xcenter - width/2 - dx/2
+		            for child in children:
+		                nextx += dx
+		                pos = _hierarchy_pos(G,child, width = dx, vert_gap = vert_gap, 
+		                                    vert_loc = vert_loc-vert_gap, xcenter=nextx,
+		                                    pos=pos, parent = root)
+		        return pos
+
+		            
+		    return _hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
+
+		G = HPO.getDirectedAcyclicGraph()
+		pos = hierarchy_pos(G,"HP:0000001")    
+		fig = nx.draw(G, pos=pos, with_labels=True)
+		plt.savefig(fig)
+
+
+
+
+
 
 
 
@@ -80,7 +226,7 @@ class ChainStatistics(ProtPairs):
 
 		"""
 
-		if not Input:
+		if not self.Input:
 			return np.load(re_path+"/dict_resStat.npy")
 
 
@@ -152,7 +298,7 @@ class Complex(ProtPairs):
 
 		"""
 
-		if not Input:
+		if not self.Input:
 			return np.load(re_path+"/ComplexInfo.npy")
 
 		pdb3 = atomium.fetch(self.PDBid)
@@ -177,7 +323,7 @@ class Seq(ProtPairs):
 	
 		"""
 
-		if not Input:
+		if not self.Input:
 			return np.load(re_path+"/SeqInfo.npy")
 
 		dict_chainSeq = {}
@@ -218,7 +364,7 @@ class Domain(ProtPairs):
 
 	def getInteractingDomainInfoForPDB(self): # return # 'interacting doamin pairs' # 'NoEvidence'
 
-		if not Input:
+		if not self.Input:
 			return np.load(re_path+"/interDomainPairs.npy")
 
 		dict_uniprotToDomain = np.load(re_path+"/dict_uniprotToDomain.npy")
@@ -236,7 +382,7 @@ class ComPDB(ProtPairs):
 
 	def getNewPDBwCB(self): # return # pdb_id_wCB.cif
 
-		if not Input:
+		if not self.Input:
 			return re_path+"/PDBwCB"
 
 		pdb_id = self.PDBid
@@ -361,7 +507,7 @@ class Ang(ProtPairs):
 
 	def getAngInfoForResiduePairs(self): 
 
-		if not Input:
+		if not self.Input:
 			return re_path+"/Angles"
 
 		
@@ -776,7 +922,7 @@ class Dist(ProtPairs):
 
 	def getDistInfoForResiduePairs(self, Type = 'closest'): # (Type = 'closest' # 'alpha' # 'beta')
 
-		if not Input:
+		if not self.Input:
 			return np.load(re_path+"/dist_"+Type+".npy")
 
 		# Find out the corresponding chains
