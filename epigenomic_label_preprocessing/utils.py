@@ -17,10 +17,11 @@ def prepare_whole_genome_bed_file(chr_index, chr_length, region_length, output_p
 	'region_length' is the length of the each candidate region. Here we use 200bp.
 	'output_path' is where the generated bed file will be saved at.
 	"""
+	chr_region_count = np.zeros(len(chr_length))
 	with open(output_path + 'whole.bed', 'w+') as f:
 		for i in range(len(chr_length)):
-			chr_length[i] = (chr_length[i] // region_length)
-			for index in range(chr_length[i]):
+			chr_region_count[i] = (chr_length[i] // region_length)
+			for index in range(chr_region_count[i]):
 				f.write(str(chr_index[i] + '\t' + str(index*region_length) + '\t' + str(index * region_length + region_length) + '\n'))
 
 def convert_peak_to_binary(input_path, output_path, chr_length, bed_file_list_name, region_length):
