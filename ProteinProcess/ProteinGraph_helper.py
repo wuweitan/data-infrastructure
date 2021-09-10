@@ -13,12 +13,206 @@ import random
 
 import networkx as nx # for graph similarity
 
-from pdb_helper import read_pdb
-from auxiliary_funtions import remove
-import pdb_helper
+import Sequence_helper
+
+import requests
+import json
 
 LETTERS = string.ascii_uppercase
 ss_map3_dict = {'H':'H','G':'H','I':'H','E':'E','B':'E','S':'C','T':'C','-':'C','C':'C'}
+
+#***********************************************************************************************************
+
+def remove(string,char):
+    '''
+    Remove the character in a string.
+    '''
+    #string_char = [i for i in string.split(char) if i != '']
+    #return string_char[0]
+    string_char = string.split(char)
+    return ''.join(string_char)
+
+#***********************************************************************************************************
+
+def read_pdb(pdb_file):
+    '''
+    Extract the residue information inside a pdb file.
+    '''
+    protein_dict = {}
+    index_dict = {} # The indexes of the residues. Two level: the first is for the number, the second is for the letter.
+                    # e.g. '100', '100A', '100B','101','102'...then the dictionary is {...,100:[' ','A','B'],101:[' '],...}
+    with open(pdb_file,'r') as p_file:
+        lines = p_file.readlines()
+        for line in lines:
+            if line[0:4] == 'ATOM':
+                ### residue-wise info ###
+                if line[16] == ' ' or line[16] == 'A' or line[16] == '1':
+                    atom = remove(line[12:16],' ')
+                else:
+                    atom = remove(line[12:16],' ') + '_' + line[16]
+                resi = line[17:20]
+                chain = line[21]
+                index_all = remove(line[22:27],' ')
+                index = int(remove(line[22:26],' '))
+                insertion_code = line[26]
+                ### atom-wise info ###
+                x = float(remove(line[30:38],' '))
+                y = float(remove(line[38:46],' '))
+                z = float(remove(line[46:54],' '))
+                occupancy = float(remove(line[54:60],' '))
+                temp_factor = float(remove(line[60:66],' '))
+        ############ Judge whether a new chain begins. ########################      
+                if not chain in protein_dict.keys():
+                    protein_dict[chain] = {}
+                    index_dict[chain] = {}
+        ############ Save the sequence infomation. ######################## 
+                if not index_all in protein_dict[chain].keys():
+                    protein_dict[chain][index_all] = {'index':index,'insertion_code':insertion_code,'resi':resi}
+                    if not index in index_dict[chain]:
+                        index_dict[chain][index] = [insertion_code]
+                    else:
+                        index_dict[chain][index].append(insertion_code)
+                elif resi != protein_dict[chain][index_all]['resi']:
+                    print('PDB read error! The residue kind of resi %s is not consistent for %s!'%(index_all,pdb_file))
+                    return 0
+                if not atom in protein_dict[chain][index_all].keys():
+                    protein_dict[chain][index_all][atom] = [x,y,z,occupancy,occupancy,temp_factor]  
+    return protein_dict, index_dict
+
+#***********************************************************************************************************
+
+def read_pdb_ss(header_file, chain_ref):
+    '''
+    Extract the ss information inside a pdb header.
+    '''
+    ss_index_dict = {'SHEET':[], 'HELIX':[]}
+    with open(header_file, 'r') as rf:
+        lines = rf.readlines()
+    flag = True
+    for line in lines:
+        if line.startswith('HELIX'):
+            chain = line[19]
+            if chain == chain_ref:
+                if flag and chain != line[31]:
+                    print('Error! Chains do not match for %s!'%header_file)
+                    flag = False
+                start = remove(line[20:25], ' ')
+                end = remove(line[32:37], ' ')
+                ss_index_dict['HELIX'].append((start, end))
+        elif line.startswith('SHEET'):
+            chain = line[21]
+            if chain == chain_ref:
+                if flag and chain != line[32]:
+                    print('Error! Chains do not match for %s!'%header_file)
+                    flag = False
+                start = remove(line[22:26], ' ')
+                end = remove(line[33:37], ' ')
+                ss_index_dict['SHEET'].append((start, end))
+    return ss_index_dict
+
+def rcsb_api_ss(pdb, chain, PDB_chain = True):
+    '''
+    Extract the ss information inside a pdb header.
+    '''
+    rcsbBase_url = "https://data.rcsb.org/graphql"
+    ### map the PDB (author) chain ID to the RCSB chain ID
+    if PDB_chain:
+        # query entity ids
+        entityIds_query = '''
+        {{entries(entry_ids: ["{}"]) {{
+            rcsb_entry_container_identifiers {{
+                polymer_entity_ids}}
+                }}
+          }}  
+          '''.format(pdb)
+        res_entityIds = requests.post(rcsbBase_url,json={'query':entityIds_query})
+        if res_entityIds.status_code != 200:
+            print('Query fail for %s!'%pdb)
+            return None, None
+        # query asym_ids, auth_asym_ids
+        entityIds_list = res_entityIds.json()
+        if len(entityIds_list['data']['entries']) == 0:
+            print('Empty query for %s!'%pdb)
+            return None, None
+        entityIds_list = entityIds_list['data']['entries'][0]['rcsb_entry_container_identifiers']['polymer_entity_ids']
+        if len(entityIds_list) > 0:
+            flag = True
+            for ent_id in entityIds_list:
+                asymIds_query = '''
+                {{polymer_entities(entity_ids:["{}_{}"]) {{
+                    rcsb_polymer_entity_container_identifiers {{
+                      asym_ids
+                      auth_asym_ids}}
+                    entity_poly {{
+                      pdbx_strand_id}}
+                  }}
+                }}
+                '''.format(pdb, ent_id)
+                res_asymIds = requests.post(rcsbBase_url,json={'query':asymIds_query})
+                if res_asymIds.status_code != 200:
+                    print('Query fail for %s_%s!'%(pdb, ent_id))
+                    return None, None
+                else:
+                    rec_asymIds_json = res_asymIds.json()
+                    asymIds_list = rec_asymIds_json['data']['polymer_entities'][0]['rcsb_polymer_entity_container_identifiers']['asym_ids']
+                    pdbx_strandId_list = rec_asymIds_json['data']['polymer_entities'][0]['entity_poly']['pdbx_strand_id'].split(',')
+                    if chain in pdbx_strandId_list:
+                        chain = asymIds_list[pdbx_strandId_list.index(chain)]
+                        flag = False
+                        break
+            if flag:
+                print('Chain %s is not found for %s!'%(chain, pdb))
+        else:
+            print('No entity for %s!'%pdb)
+            return None, None
+    ### API query format
+    pdb_instance = '{}.{}'.format(pdb,chain)
+    query = '''
+    {{polymer_entity_instances(instance_ids: ["{pdb_info}"]) {{
+        rcsb_id
+        rcsb_polymer_instance_feature {{
+          type
+          feature_positions {{
+            beg_seq_id
+            end_seq_id
+          }}
+        }}
+        rcsb_polymer_entity_instance_container_identifiers {{
+        auth_to_entity_poly_seq_mapping
+        }}
+      }}
+    }}
+    '''.format(pdb_info = pdb_instance)
+    ### API query
+    info_dict = requests.post(rcsbBase_url,json={'query':query})
+    if info_dict.status_code != 200: 
+        print('Query fail for %s!'%pdb_instance)
+        return None, None 
+    info_dict = info_dict.json()
+    if len(info_dict['data']['polymer_entity_instances']) == 0:
+        print('Empty query for %s!'%pdb)
+        return None, None
+    ### extract the SS index info
+    ss_info_dict = {'SHEET':[], 'HELIX':[]}
+    if info_dict['data']['polymer_entity_instances'][0]['rcsb_polymer_instance_feature'] is not None:
+        for info in info_dict['data']['polymer_entity_instances'][0]['rcsb_polymer_instance_feature']:
+            if 'SHEET' in info['type']:
+                for ss_range in info['feature_positions']:
+                    start = ss_range['beg_seq_id']
+                    end = ss_range['end_seq_id']
+                    ss_info_dict['SHEET'].append((start, end))
+            elif 'HELIX' in info["type"]: 
+                for ss_range in info['feature_positions']:
+                    start = ss_range['beg_seq_id']
+                    end = ss_range['end_seq_id']
+                    ss_info_dict['HELIX'].append((start, end))
+        ### transform the sequence index to pdb index
+    ss_index_dict = {'SHEET':[], 'HELIX':[]}
+    pdb_index = info_dict['data']['polymer_entity_instances'][0]['rcsb_polymer_entity_instance_container_identifiers']['auth_to_entity_poly_seq_mapping']
+    for key in ss_info_dict.keys():
+        for seg in ss_info_dict[key]:
+            ss_index_dict[key].append((pdb_index[seg[0] - 1], pdb_index[seg[1] - 1]))
+    return ss_index_dict, pdb_index
 
 #***********************************************************************************************************
 
@@ -165,7 +359,7 @@ class Protein_Graph(object):
     Generate graphs according to the protein information.
     '''
 
-    def __init__(self, protein_dict, index_dict, ss_seq=None, sequence_ref=None, ss_kind=3, treat_as_missing=True):
+    def __init__(self, protein_dict, index_dict, ss_seq=None, sequence_ref=None, ss_kind=3, treat_as_missing=True, ss_padding = True):
         '''
         Warning: if the input information is based on 3-classes and ss_kind = 8, the graph construction will still be based on 3-classes and treat 'C' as '-'.
         ss_kind: 3 or 8
@@ -242,7 +436,7 @@ class Protein_Graph(object):
                     seq_processed += protein_dict[index]['AminoAci'] 
 
         if sequence_ref and sequence_ref != seq_processed:
-            align_flag, seq_padding, sequence_ref_new = pdb_helper.seq_truncate(seq_processed,sequence_ref)
+            align_flag, seq_padding, sequence_ref_new = Sequence_helper.seq_truncate(seq_processed,sequence_ref)
             if not align_flag:
                 print('Error! The sequence and the reference sequence do not match!')
                 print(seq_processed)
@@ -267,8 +461,9 @@ class Protein_Graph(object):
 
         ### Modify SS sequence accordingly
 
-        for m_idx in make_up_idx:
-            ss_ref_seq = ss_ref_seq[:m_idx] + '*' + ss_ref_seq[m_idx:]
+        if ss_padding:
+            for m_idx in make_up_idx:
+                ss_ref_seq = ss_ref_seq[:m_idx] + '*' + ss_ref_seq[m_idx:]
 
         self.SS_origin = ss_ref_seq
 
@@ -290,7 +485,7 @@ class Protein_Graph(object):
                 self.residues_dict[index] = {'status':'missing_resi'}
 
                 ss = ss_ref_seq[resi_order]
-                if ss != '*':
+                if ss != '*' and ss_padding:
                     print('Missing residue index error! Residue %d should be missing!'%idx)
                     return None
                 self.residues_dict[index]['ss'] = ss
@@ -312,7 +507,7 @@ class Protein_Graph(object):
 
                 ### make up residue
                 while resi_order in make_up_idx:
-                    index_make_up = '%d_make_up'
+                    index_make_up = '%d_make_up'%resi_order
                     self.ordered_index.append(index_make_up)
                     self.missing_index.append(index_make_up)
                     self.residues_dict[index_make_up] = {'status':'missing_resi','ss':'*'}
@@ -424,7 +619,10 @@ class Protein_Graph(object):
 
         for idx in self.ordered_index: 
             resi_dict = self.residues_dict[idx]
-            status = resi_dict['status']
+            if ss_padding:
+                status = resi_dict['status']
+            else:
+                status = 'normal'
             ss = resi_dict['ss']
             ### whether a new element
             if status != status_pre or ss != ss_pre:
@@ -436,17 +634,18 @@ class Protein_Graph(object):
                 single_ele['status'] = status_pre
                 single_ele['SS'] = ss_pre
 
-                single_ele = self.element_arrange(single_ele) # get the arranged element 
+                single_ele = self.element_arrange(single_ele, ss_padding) # get the arranged element 
                 self.elements.append(single_ele) 
 
                 single_ele = {'seq':'','resi':[],'ASA_level':[]} # initialize a new element
   
             single_ele['seq'] += resi_dict['aa']
-            if status != 'missing_resi':
-                if status != 'missing_SS':
+            if resi_dict['status'] != 'missing_resi':
+                if resi_dict['status'] != 'missing_SS':
                     single_ele['ASA_level'].append(resi_dict['ASA_level'])
                     resi_dict_temp = {'DSSP_idx':resi_dict['DSSP_idx'], 'coor':resi_dict['coor'], 'hbond_pair':resi_dict['hbond_pair']}
                 else:
+                    single_ele['ASA_level'].append(resi_dict['ASA_level'])
                     resi_dict_temp = {'coor':resi_dict['coor']}
                 single_ele['resi'].append(resi_dict_temp)
            
@@ -456,11 +655,11 @@ class Protein_Graph(object):
         ### for the last element
         single_ele['status'] = status_pre
         single_ele['SS'] = ss_pre
-        single_ele = self.element_arrange(single_ele) # get the arranged element 
+        single_ele = self.element_arrange(single_ele, ss_padding) # get the arranged element 
         self.elements.append(single_ele)
 
 
-    def element_arrange(self, element):
+    def element_arrange(self, element, ss_padding = True):
         '''
         Arrange the element information and generate a complete element     
         '''
@@ -468,7 +667,7 @@ class Protein_Graph(object):
         element['length'] = len(element['seq'])
 
         if element['status'] == 'normal':
-            if element['length'] == 1:
+            if element['length'] == 1 and len(element['ASA_level']) > 0: #?
                 element['ASA_level'] = element['ASA_level'][0]
             else:
                 surface_amount = element['ASA_level'].count('surface')
@@ -493,8 +692,10 @@ class Protein_Graph(object):
                 feature[3+self.ss_kind] = 1
             elif element['ASA_level'] == 'core':
                 feature[4+self.ss_kind] = 1
-            else:
+            elif ss_padding:
                 print('Error! No ASA level named %s!'%element['ASA_level'])
+            else:
+                feature[1] = 1
         elif element['status'] == 'missing_resi':
             feature[0] = 1
         else:
@@ -746,6 +947,9 @@ def best_fit(coors):  # best-fit vector
     return dire, center
 
 def resi_hbond_judge(resi_1, resi_2):
+    if not ('DSSP_idx' in resi_1.keys() and 'DSSP_idx' in resi_2.keys()\
+    and 'hbond_pair' in resi_1.keys() and 'hbond_pair' in resi_2.keys()):
+        return False
     dssp_idx_1 = resi_1['DSSP_idx']
     dssp_idx_2 = resi_2['DSSP_idx']
     if (dssp_idx_1 in resi_2['hbond_pair']) or (dssp_idx_2 in resi_1['hbond_pair']):
@@ -824,34 +1028,19 @@ def PROTEIN_ele_center(resi_info):
 
 #********************************* for Graph Process ***************************************
 
-def Adjacency_to_edge_index(A_matrix):
-    """
-    Transform the adjacency matrices into edge index format.
-    """
-    if type(A_matrix) == list:
-        multiple = True
-        result = []
-        for A in A_matrix:
-            result.append(Adjacency_to_edge_index(A)[0])
-    else:
-        multiple = False
-        while(len(A_matrix.shape) > 2):
-            A_matrix = A_matrix[0]
-        result = from_scipy_sparse_matrix(csr_matrix(A_matrix))[0]
-    return result, multiple
-
-def to_nxGragh(X, A):
-    adj_dim = A.shape[0]
-    G_all = []
-    for idx in range(adj_dim):
-        G = nx.Graph()
-        node_num = X.shape[0]
+def to_nxGragh(A,X=None,Y=None):
+    ## for 1-channel graph
+    G = nx.Graph()
+    if Y:
+        G.graph['label'] = Y
+    node_num = A.shape[0]
+    if X.any():
         for i in range(node_num):
             G.add_node(i,feat=X[i])
-        for i in range(node_num):
-            for j in range(i+1,node_num):
-                if A[idx,i,j] != 0:
-                    G.add_edge(i, j, weight= A[idx,i,j])
-                    G.add_edge(j, i, weight= A[idx,j,i])
-        G_all.append(G)
-    return G_all
+    for i in range(node_num):
+        for j in range(i+1,node_num):
+            #print(i,j,node_num)
+            if A[i,j] != 0:
+                G.add_edge(i, j, weight= A[i,j])
+                G.add_edge(j, i, weight= A[j,i])
+    return G

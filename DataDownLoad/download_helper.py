@@ -168,4 +168,52 @@ def read_SCOPe_title(title):
         print(title)
         return 1,1,1
 
+def pdb_ID_supersede(pdb_ID, temporary_path = None):
+    """
+    For the pdb IDs that have been replaced, return the current ID.
+    """
+    token = 'It has been replaced (superseded) by&nbsp<a href="/structure/'
+    if temporary_path is None:
+        temporary_path = '%s'%pdb_ID
+    else:
+        if not temporary_path.endswith('/'):
+            temporary_path += '/'
+        temporary_path += pdb_ID
+
+    ### avoid covering the previous files
+    idx = 1
+    temporary_path_new = temporary_path
+    while os.path.exists(temporary_path_new):
+        temporary_path_new = temporary_path + '_%s'%idx
+        idx += 1
+    temporary_path = temporary_path_new 
+
+    ### Download information
+    command = 'wget https://www.rcsb.org/structure/%s -O %s'%(pdb_ID, temporary_path)
+    os.system(command)
+    ### mapping
+    with open(temporary_path, 'r') as rf:
+        lines = rf.readlines()
+    flag = True
+    for line in lines:
+        if token in line:
+            start = line.index(token) + token_len
+            end = start + 4
+            pdb_new = line[start:end]
+            flag = False
+            break
+     
+    # discard the temporary file
+    os.remove(temporary_path)
+
+    if flag:
+        return pdb_ID
+    else:
+        return pdb_new
+
+
+        
+
+
+    
 

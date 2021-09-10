@@ -13,6 +13,11 @@ LIST_FILE = sys.argv[1]
 DOWN_OB = sys.argv[2]
 DOWN_PATH = sys.argv[3]
 
+if len(sys.argv) > 4 and bool(int(sys.argv[4])):
+    supersede = True
+else:
+    supersede = False
+
 if not DOWN_PATH.endswith('/'):
     DOWN_PATH += '/'
 
@@ -38,6 +43,8 @@ if DOWN_OB == 'pdb':
     for index in PDB_list:
         print index
         PDB_index = index[0]
+        if supersede: # update to the current ID
+            PDB_index = download_helper.pdb_ID_supersede(PDB_index)
         info = '(chain %s)'%index[1]
         file_name = DOWN_PATH + PDB_index + '_' + index[1] + '.pdb'
         feedback = download_helper.pdb_download_with_info(PDB_index,info,file_name)
@@ -49,6 +56,8 @@ elif DOWN_OB == 'seq':
     for index in PDB_list:
         print index
         PDB_index = index[0]
+        if supersede: # update to the current ID
+            PDB_index = download_helper.pdb_ID_supersede(PDB_index)
         chain = index[1]
         file_name = DOWN_PATH + PDB_index + '_' + index[1] + '.fasta'
         feedback = download_helper.seq_download_with_chain(PDB_index,chain,file_name)
