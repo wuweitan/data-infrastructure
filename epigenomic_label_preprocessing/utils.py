@@ -35,7 +35,7 @@ def convert_peak_to_binary(input_path, output_path, chr_length, bed_file_list_na
 	"""
 	chr_start_coordinates = [0]
 	for i in range(len(chr_length)):
-		chr_start_coordinates.append(chr_start_coordinates[i] + (chr_length[i] // 200))
+		chr_start_coordinates.append(chr_start_coordinates[i] + (chr_length[i] // region_length))
 	bed_file_list = open(input_path + bed_file_list_name).readlines()
 	avail_files = []
 	for i in range(len(origin_bed_list)):
