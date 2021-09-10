@@ -59,12 +59,8 @@ flags.DEFINE_string('IN_FORMAT', 'stockholm', 'format for input seq files')
 flags.DEFINE_boolean('MASK_FLAG', True, 'Whether to mask seqs')
 
 
-class SequenceMainClass():
-  """The class for pfam sequence generation
-     * extract sequence from pfam MSA file
-     * split data into train, validation and test set
-     * filter sequence by length
-  """
+""" Function utilities to process pfam sequence data
+"""
 
 def raw_msa2dict(data_path, input_format, fileNm, famAcc, clanAcc):
   '''
@@ -266,3 +262,175 @@ def filterByLen(argv):
 
   os.system("echo 'In total, write {} instances with train {}, val {}, test {}' > {}/seq_json_num_lenCut".format(sum(num_written), num_written[0], num_written[1],num_written[2], STAT_PATH))
 
+
+def IdentityBasedSeqReweight(
+    working_path: str = None,
+    famClanMap: dict = None,
+    msa_dir: str = None,
+    msa_format: str = 'stockholm',
+    family_list: List = None,
+    familyList_file: str = None,
+    output_dir: str = None,
+    output_format: str = 'lmdb',
+    iden_cutoff: float = 0.8,
+    align_pairwise: bool = False,
+    reweight_bool: bool = True,
+    use_diamond: bool = False,
+    diamond_path: str = None,
+    use_mmseqs2: bool = True,
+    mmseqs2_path: str = None):
+
+  """create dataset(lmdb) from Pfam MSA files
+    
+    * extract unaligned seq
+    * calculate weighting for each seq 
+      * reciprocal of the number of neighbors for each sequence at a minimum identity of 80%
+    * calculate weighting for each family
+      * reciprocal of sum of seq weights in this family 
+  """
+  if family_list is not None:
+    family_list = np.asarray(family_list,dtype='str').reshape((-1,))
+  ## load family list to process
+  if familyList_file is not None:
+    family_list = np.loadtxt('{}/{}'.format(working_path,familyList_file), dtype='str', delimiter=',')
+
+  # loop through family list
+  for l in range(family_list.shape[0]):
+  #for l in range(1):
+    famAcc = family_list[l]
+    print('>>> Processing %s' % (famAcc), flush=True)
+
+    ## get clan 
+    clanAcc = get_clanAcc(famAcc,famClanMap)
+
+    # transform raw fasta sequence to list of distionarys
+    print("*** Reading seqs from msa (fasta/stockholm) files ***", flush=True)
+    ## remove family version number
+    if re.search(r'\.\d+',famAcc) is not None:
+      famAcc = re.split(r'\.', famAcc)[0]
+   
+    seq_dict_list = raw_msa2dict(data_path='{}/{}'.format(working_path,msa_dir),
+                                 input_format=msa_format,
+                                 fileNm=famAcc,
+                                 famAcc=famAcc,
+                                 clanAcc=clanAcc)
+    
+    print('>>> Num of seqs: {}'.format(len(seq_dict_list)))
+    if reweight_bool:
+      if use_diamond:
+        print('>>Using Diamond')
+        seqReweight_dict = {}
+        ## stockholm to fasta
+        os.system('esl-reformat -u -o {}/{}/{}.fa fasta {}/{}/{}'.format(diamond_path,famAcc,famAcc,working_path,msa_dir,famAcc))
+        ## build diamond database
+        os.system('diamond makedb --in {}/{}/{}.fa -d {}/{}/{}'.format(diamond_path,famAcc,famAcc,diamond_path,famAcc,famAcc))
+        ## diamond search
+        # get split fasta names
+        fasta_splitList = os.popen("ls -v {}/{}/splits".format(diamond_path,famAcc)).readlines() #contain '\n'
+        # loop fasta splits
+        for fa_split in fasta_splitList:
+          fa_split = fa_split.replace('\n','')
+          # search
+          #dmSearch_out = os.popen(f'diamond blastp -q {diamond_path}/splits/{fa_split} -d {diamond_path}/{famAcc}/{famAcc} -o {diamond_path}/{famAcc}/{famAcc}.out.tsv -v -k0 --compress 1 -f 6 qseqid sseqid pident length mismatch').readlines()
+          os.system(f'diamond blastp -q {diamond_path}/splits/{fa_split} -d {diamond_path}/{famAcc}/{famAcc} -o {diamond_path}/{famAcc}/{famAcc}.out.tsv -v -k0 --compress 1 -f 6 qseqid sseqid pident length mismatchi')
+          # loop each seq
+          with open(f'{diamond_path}/splits/{fa_split}') as handle:
+            for record in SeqIO.parse(handle, "fasta"):
+              seqId = record.id
+              # extract lines for this seq
+              iden_tar = os.popen(f"grep '^{seqId}' {diamond_path}/{famAcc}/{famAcc}.out.tsv | cut -d$'\t' -f3").readlines()
+              iden_tar = np.array([float(iden.strip('\n')) for iden in iden_tar])
+              num_neighbors = np.sum(iden_tar >= iden_cutoff) - 1 
+              seqReweight_dict[seqId] == 1. / num_neighbors
+              ##TODO unfinished
+      if use_mmseqs2: ## use mmSeqs2 to cluster seqs, then use reweight = 1/cluster_size for seqs in one cluster
+        print('>>Using MMseqs2')
+        ## stockholm to fasta
+        if not os.path.isdir(f'{mmseqs2_path}/{famAcc}'):
+          os.mkdir(f'{mmseqs2_path}/{famAcc}')
+        os.system(f'esl-reformat -u -o {mmseqs2_path}/{famAcc}/{famAcc}.fa fasta {working_path}/{msa_dir}/{famAcc}')
+        ## run mmseqs2
+        os.system(f'mmseqs easy-linclust {mmseqs2_path}/{famAcc}/{famAcc}.fa {mmseqs2_path}/{famAcc}/{famAcc}_mmseqs2 {mmseqs2_path}/tmpDir -c {iden_cutoff} --cov-mode 1 --cluster-mode 2 --alignment-mode 3 --min-seq-id {iden_cutoff}')
+        ## loop representative seqs
+        seqReweight_dict = {}
+        family_reweight = 0.
+        with open(f'{mmseqs2_path}/{famAcc}/{famAcc}_mmseqs2_rep_seq.fasta') as handle:
+          for record in SeqIO.parse(handle,"fasta"):
+            seqId = record.id
+            ## get neighbor seqIds and nums
+            num_neighbors = int(os.popen(f"grep -c '{seqId}' {mmseqs2_path}/{famAcc}/{famAcc}_mmseqs2_cluster.tsv").read().strip('\n'))-1# remove count of itself
+            assert num_neighbors >= 0
+            if num_neighbors == 0:
+              seqReweight_dict[seqId] = 1.0
+              family_reweight += 1.0
+            else:
+              seq_neighbors = os.popen(f"grep '{seqId}' {mmseqs2_path}/{famAcc}/{famAcc}_mmseqs2_cluster.tsv").read().strip('\n').split('\n')
+              for seq_pair in seq_neighbors:
+                seqNei_id = seq_pair.split('\t')[-1]
+                seqReweight_dict[seqNei_id] = 1./num_neighbors
+                family_reweight += 1./num_neighbors
+        ## check num of seqs in seqReweight_dict
+        ## CAUTION: seqs containing 'X'
+        #assert len(seq_dict_list) == len(seqReweight_dict)
+        ## assign seq reweight score
+        for seq_dict in seq_dict_list:
+          seqId = '{}/{}'.format(seq_dict['unpIden'],seq_dict['range'])
+          seq_dict['seq_reweight'] = seqReweight_dict[seqId]
+      else: ## calculate pairwise %identity mamually
+        print('>>manual pairwise iden')
+        start_time = time.time()
+        print("*** Calculating sequence reweighting scores ***", flush=True)
+        ## calculate reweighting score for each sequence and whole family
+        family_reweight = 0.
+        for seq_dict_query in seq_dict_list:
+          idenScore_list = []
+          for seq_dict in seq_dict_list:
+            if align_pairwise:
+              iden_score = seq_align_identity(seq_dict_query['primary'],seq_dict['primary'],matrix=blosum_matrix)
+            else:
+              iden_score = seq_identity(seq_dict_query['msa_seq'],seq_dict['msa_seq'])
+            idenScore_list.append(iden_score)
+          idenScore_list = np.array(idenScore_list).astype(float)
+          ## exclude compare to itself(-1), avoid devided by 0
+          num_similar_neighbors = np.sum(idenScore_list >= iden_cutoff) - 1.
+          seq_reweight = min(1., 1. / (num_similar_neighbors + 1e-6))
+          seq_dict_query['seq_reweight'] = seq_reweight
+          family_reweight += seq_reweight
+        end_time = time.time()
+        print('>>> Takes {}s'.format(end_time - start_time))
+    
+    print("*** Save data and figure ***", flush=True)
+    ## save family reweighting score, seq_length, uniq_char
+    seqLen_list = []
+    uniq_chars = []
+    for seq_dict in seq_dict_list:
+      #rand_num = rng.random()
+      if reweight_bool:
+        seq_dict['family_reweight'] = family_reweight
+      seqLen_list.append(seq_dict['protein_length'])
+      seq = seq_dict['primary']
+      uniq_chars = list(set(uniq_chars + list(seq)))
+    
+    ## seq length histogram figure
+    fig = plt.figure(0)
+    plt.hist(seqLen_list, density=False, bins=50)  # density=False would make counts
+    plt.ylabel('Count')
+    plt.xlabel('Length')
+    plt.savefig('{}/{}/seqLenDist_{}.png'.format(working_path,output_dir,famAcc))
+    ## save
+    np.savetxt('{}/{}/seqLenList_{}'.format(working_path,output_dir,famAcc),seqLen_list,fmt='%s',delimiter=',')
+    np.savetxt('{}/{}/uniqCharList_{}'.format(working_path,output_dir,famAcc),uniq_chars,fmt='%s',delimiter=',')
+    if output_format == 'json':
+      with open('{}/{}/{}.json'.format(working_path,output_dir,famAcc),'w') as fl2wt:
+        json.dump(seq_dict_list,fl2wt)
+    elif output_format == 'lmdb':
+      wrtEnv = lmdb.open('{}/{}/{}.lmdb'.format(working_path,output_dir,famAcc), map_size=(1024 * 20)*(2 ** 20))
+      with wrtEnv.begin(write=True) as txn:
+        for i, entry in enumerate(seq_dict_list):
+          txn.put(str(i).encode(), pkl.dumps(entry))
+        txn.put(b'num_examples', pkl.dumps(i + 1))
+      wrtEnv.close()
+    else:
+      Exception('invalid output format: {}'.format(output_format))
+    print('*** In total, write {} instances ***'.format(len(seq_dict_list)), flush=True)
+  return None
