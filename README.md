@@ -17,7 +17,7 @@
 
 ![](./blueprint.png)
 
-![](./prot_hpo_subgraph.png)
+![](./step3_prot_disease_subgraph.png)
 
 ### Priority
 * PPI mutation effect
