@@ -3,141 +3,78 @@ import matplotlib.pyplot as plt
 import json
 import pickle
 import amino_acid
+import sys
 
 
-with open("alt_id.pickle", "rb") as f:
-	alt_id = pickle.load(f)
+class Swiss_Prot:
+	def __init__(self, file_path):
+		# arguments:  file_path:  The path to the downloaded Uniport file. Please use the txt file format.
 
+		self.file_path = file_path
 
-with open("obsolete.pickle", "rb") as f:
-	obsolete = pickle.load(f)
+	def read_file(self): 
+	# The scripts for processing the UniProt file. 
+	# return:
+	#           A list contains all proteins in the file.
+	#           Each entry of the list is a dictionary that stores the information of that proteins
+	#           
 
-with open("mf_go_all.pickle", "rb") as f:
-	mf_go_graph = pickle.load(f)
+	self.seq_SP = []
+	self.ac={}
+	self.id={}
 
-cafa_criteria = {'EXP': 5,
-'IDA': 5,
-'IPI': 5,
-'IMP': 5,
-'IGI': 5, 
-'IEP': 3,
-'TAS': 4,
-'IC': 4,
-}
-evidence_code_rank={
-	'EXP': 5,
-'IDA': 5,
-'HDA': 5,
-'IPI': 5,
-'IMP': 5,
-'HMP': 5,
-'IGI': 5,
-'HGI': 5,
-'IEP': 3,
-'HEP': 3,
-'ISS': 2,
-'ISO': 2,
-'ISA':0,
-'ISM': 0,
-'IGC':3,
-'IBA': 2,
-'IBD': 2,
-'IKR': 2,
-'IRD': 2,
-'RCA': 3 ,
-'TAS': 4,
-'NAS': 1.5,
-'IC': 4,
-'ND':0,
-'IEA':2, 
-'NR':1
-}
-
-evidence_code_stat={}
-for i in evidence_code_rank:
-	evidence_code_stat[i]=0
-
-evidence_level=2
-
-
-file_path = "Swiss_prot_12022020/uniprot_sprot.dat"
-len_limit=200
-
-
-def swiss_prot_curate(): # Swiss Prot data
-	
-
-	seq_SP = {}
-
-	with open(file_path, "r") as f:
+	with open(self.file_path, "r") as f:
 		num_line=0
 
 		for line in f:
 			if line[0:2]=='ID':
-				
-				seq_SP[line.split()[1]]={'GO':[]}
-				idd = line.split()[1]
-				seq_label=0
+				self.seq_SP.append({})
+				self.seq_SP[-1]['GO'] =[]
+				self.seq_SP[-1]['ID'] = line.split()[1]
+				self.seq_label = 0
+				self.id[self.seq_SP[-1]['ID']] = len(self.seq_SP)-1
+
 
 			elif(line[0:2]=='AC'):
 				ac = line[5:].split(';')[0]
-				seq_SP[idd]['ac'] =ac
-				
+				self.seq_SP[-1]['ac'] =ac
+				self.ac[ac] = len(self.seq_SP)-1
 
 			elif line[0:2]=='DT' and "UniProtKB/Swiss-Prot" in line:
-				seq_SP[idd]['date'] =  line[5:16]
+				self.seq_SP[-1]['date'] =  line[5:16]
 
 
 
 			elif line[0:7] == 'DR   GO':
-
-				evidence_code = line.split(';')[-1][1:4].strip(':')
-				#print (idd, evidence_code)
-				assert evidence_code in evidence_code_stat
-
-				if evidence_code_rank[evidence_code] >=2:
-				#if evidence_code in cafa_criteria: #and line[9:19] in on:
-
+				entry = [line[9:19], line[21]]
 				
-					if alt_id[line[9:19]] in mf_go_graph:
-						seq_SP[idd]['GO'].append( alt_id[line[9:19]])
-
+				self.seq_SP[-1]['GO'].append(entry)
 
 			elif line=='//\n':
-				seq_SP[idd]['seq'] = temp_seq
+				self.seq_SP[-1]['seq'] = temp_seq
 
 				# ----------------if the instance does not have any GO terms or date; or it contains non-natural
-				# amino acids or the length is above 500,  we remove it.
-				if seq_SP[idd]['GO'] ==[] or 'date' not in seq_SP[idd] or \
-				amino_acid.Nature_seq(seq_SP[idd]['seq'])==False:
-					del seq_SP[idd]
+				# amino acids,  we remove it.
+				if self.seq_SP[-1]['GO'] ==[] or 'date' not in self.seq_SP[-1] or amino_acid.Nature_seq(self.seq_SP[-1]['seq'])==False:
+					self.seq_SP.pop(-1)
 				
 
 			elif seq_label == 1:
 				temp_seq += line.strip('\n').replace(' ','') 
 
 			elif line[0:2]=='SQ':
-				seq_label=1
+				self.seq_label=1
 				temp_seq=''
 
 			num_line+=1
-			
-	return seq_SP
 
-seq_SP = swiss_prot_curate()
+	def query_ac(self, ac):
 
+		# query the protein using the accession number 
+		return self.ac[ac]
+	
+	def query_id(self, id):
 
-for i in seq_SP:
-	if seq_SP[i]['GO']==[]:
-		print ('go no', seq_SP[i]['ac'])
-	if 'date' not in seq_SP[i]:
-		print ('date no', seq_SP[i]['ac'])
-
-
-
-
-print (len(seq_SP))
-
-#with open("seq_ec2_mfo_l"+str(len_limit)+".pkl", "wb") as f:
-with open("seq_ecCAFA_mfo_all.pkl", "wb") as f:
-	pickle.dump(seq_SP, f)
+		# query the protein using the ID in Uniprot
+		return self.id[id]
+	
