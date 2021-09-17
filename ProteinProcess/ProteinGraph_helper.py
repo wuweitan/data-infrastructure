@@ -1029,6 +1029,9 @@ def PROTEIN_ele_center(resi_info):
 #********************************* for Graph Process ***************************************
 
 def to_nxGragh(A,X=None,Y=None):
+    """
+    Transformer the graph into networkx format
+    """
     ## for 1-channel graph
     G = nx.Graph()
     if Y:
@@ -1044,3 +1047,27 @@ def to_nxGragh(A,X=None,Y=None):
                 G.add_edge(i, j, weight= A[i,j])
                 G.add_edge(j, i, weight= A[j,i])
     return G
+
+def Adjacency_to_edge_index(A_matrix):
+    """
+    Transform the adjacency matrices into edge index format.
+    """
+    result = from_scipy_sparse_matrix(csr_matrix(A_matrix))[0]
+    return result[0].numpy(), result[1].numpy()
+
+def to_dglGraph(A, version = 'Homogeneous', edge_type = None):
+    """
+    Transformer the graph into DGL format
+    """
+    node_num = A.shape[-1]
+    if version == 'Homogeneous':
+        edge_index = Adjacency_to_edge_index(A)
+        graph = dgl.graph(data = edge_index, num_nodes = node_num)
+    elif version == 'Heterogeneous':
+        edges_heter = {}
+        for i,etype in enumerate(edge_type):
+            edges_heter[etype] = Adjacency_to_edge_index(A[i])
+        graph = dgl.heterograph(data = edges_heter, num_nodes = node_num)
+    return graph
+
+

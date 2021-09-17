@@ -383,6 +383,7 @@ class GraphSampler(torch.utils.data.Dataset):
         self.seq_mask_all = []
         self.weights = []
         self.channel_num = len(G_list[0][1])
+        self.DGL_Graph = []
 
         #self.assign_feat_all = []
 
@@ -440,6 +441,9 @@ class GraphSampler(torch.utils.data.Dataset):
             ### add the info into the lists
             self.adj_all.append(adj_tensor)
             self.len_all.append(node_num)
+            channel_num = adj_tensor.shape[0]
+            version = 'Homogenous' if channel_num == 1 else 'Heterogenous'
+            self.DGL_Graph.append(ProteinGraph_helper.to_dglGraph(adj_tensor, version = version, edge_type = [str(i) dor i in range(channel_num)]))
 
             # feat matrix: max_num_nodes x feat_dim
             f = np.zeros((self.channel_num, self.max_num_nodes, self.feat_dim), dtype=float)
@@ -468,4 +472,5 @@ class GraphSampler(torch.utils.data.Dataset):
                 'adj':adj_padded,
                 'feats':self.feature_all[idx].copy(),
                 'num_nodes': num_nodes,
-                'weights': self.weights[idx].copy()}
+                'weights': self.weights[idx].copy(),
+                'dgl_graph': dgl.batch(self.DGL_Graph[idx].copy())}
