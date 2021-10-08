@@ -1,0 +1,1 @@
+"https://www.encodeproject.org/metadata/?control_type%21=%2A&status=released&perturbed=false&replicates.library.biosample.donor.organism.scientific_name=Homo+sapiens&assembly=GRCh38&files.file_type=bed+narrowPeak&assay_title=ChIA-PET&type=Experiment&files.analyses.status=released&files.preferred_default=true"
