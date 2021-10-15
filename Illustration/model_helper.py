@@ -435,4 +435,94 @@ def model_save(model, model_path):
     _dict_save = DataLoading.dict_save(model.state_dict(), model_path)
     return 0
 
+def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001, 
+                 clip = 2.0, kld_weight = 0, kld_max = 1.0, kld_start_inc = 0, kld_inc = 0.0001, habits_lambda = 1.0
+                 loss_file = None, log_file = None, eval_file = None, eval_inter = 1, model_path = None, save_inter = 1, balance = False,
+                 temperature = None, temperature_min = None, temperature_dec = None, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3):
 
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    ### record files
+    if log_file:
+        with open(log_file,'w') as log_f:
+            log_f.write('Average-Loss\tAverage-CE\tAverage-KLD\n')
+    if loss_file:
+        with open(loss_file,'w') as loss_f:
+            loss_f.write('Overall-Loss\tCross-Entropy\tKL-Divergence\n')
+    if eval_file:
+        eval_f = open(eval_file,'w')
+        eval_f.close()
+
+    iteration_idx = 0
+
+    for epoch in range(1,Epoch_NUM + 1):
+        print('Epoch %d:'%epoch)
+
+        start_time = time.time()
+
+        model.train()
+
+        loss_all = []
+        ce_all = []
+        KLD_all = []
+
+        for batch_idx, data in enumerate(train_set):
+            ### load the batch data ###
+            seq = Variable(data['seq'].float(), requires_grad=False)#.cuda()
+            seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)#.cuda()
+            adj = Variable(data['adj'].float(), requires_grad=False)#.cuda()
+
+            h0 = Variable(data['feats'].float())#.cuda()
+            batch_num_nodes = data['num_nodes'].int().numpy()
+
+            if balance:
+                batch_size = batch_num_nodes.shape[0]
+                ele_weight = torch.cat([data['weights'][i][:batch_num_nodes[i]] for i in range(batch_size)]).float()#.cuda()
+                ele_weight = ele_weight / ele_weight.shape[0]
+            else:
+                ele_weight = None
+
+            iteration_idx += 1
+
+            optimizer.zero_grad()
+
+            ### forward ###
+
+            mu, sig, z, out = model(h0, adj, seq, batch_num_nodes, seq_mask, n_steps = seq_len, temperature = temperature, MAX_SAMPLE = MAX_SAMPLE, k=k)
+            if temperature > temperature_min:
+                    temperature -= temperature_dec
+
+            ### loss calculation ###     
+
+            loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, seq_len, kld_weight, ele_weight)
+
+            ### record ###
+
+            if loss_file:
+                loss_f = open(loss_file,'a')
+                loss_f.write('%f\t%f\t%f\n'%(float(loss), float(ce), float(KLD)))
+                loss_f.close()
+            loss_all.append(float(loss))
+            ce_all.append(float(ce))
+            KLD_all.append(float(KLD))
+
+            ### gradient clip ###
+
+            loss.backward()
+            ec = nn.utils.clip_grad_norm(model.parameters(), clip)
+            optimizer.step()
+
+            if iteration_idx > kld_start_inc and kld_weight < kld_max:
+                kld_weight += kld_inc
+
+            ### iteration end  ###
+
+        aver_loss = np.mean(loss_all)
+        aver_ce = np.mean(ce_all)
+        aver_kld = np.mean(KLD_all)
+        print('Average-Loss: %.4f\tAverage-CE: %.4f\tAverage-KLD: %.4f'%(aver_loss, aver_ce, aver_kld))
+
+        train_end_time = time.time()
+        print('Training time: %.4fs'%(train_end_time - start_time))
+
+    return model, optimizer

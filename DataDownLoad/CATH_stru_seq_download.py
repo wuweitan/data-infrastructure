@@ -13,7 +13,7 @@ import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--input_file', type=str, default='../Datasets/CATH/train_domain.txt', help='path of the input data')
-parser.add_argument('--stru_path', type=str, default='../Datasets/CATH/sequences/', help='path of the pdb')
+parser.add_argument('--stru_path', type=str, default='../Datasets/CATH/pdbs/', help='path of the pdb')
 parser.add_argument('--seq_path', type=str, default='../Datasets/CATH/sequences/', help='path of the sequences')
 
 args = parser.parse_args()
@@ -36,6 +36,9 @@ with open(input_file,'r') as in_file:
     lines = in_file.readlines()
 
 for i,line in enumerate(lines):
+    #if i >= 5:
+    #    break
+
     line = line.strip('\n')
     pdb_id = line[:4].upper()
     chain = line[4]
@@ -54,7 +57,7 @@ for i,line in enumerate(lines):
     if dl_result == 0:
         stru_num += 1
 
-    feedback = download_helper.seq_download_with_chain(pdb_id, chain, seq_file_name)
+    feedback = download_helper.seq_download_fasta(pdb_id, seq_file_name, chain = chain)
     if feedback == 0:
         seq_num += 1
 
