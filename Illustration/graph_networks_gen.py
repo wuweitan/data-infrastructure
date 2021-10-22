@@ -802,10 +802,13 @@ class VAE_Container(nn.Module):
     def vae_loss(self, mu, sig, decoded, seq, node_num, habits_lambda, kld_weight = 0.05):
         ### remove padding nodes
         batch_size = seq.shape[0]
+        seq = seq[:,:,:35,:] #?
         seq = torch.cat([seq[i][:node_num[i]] for i in range(batch_size)])
         groud_truth = torch.max(seq, dim = -1)[1].reshape(-1)
         #***********************
-        ce = self.criterion(decoded.reshape(-1,self.aa_dim), groud_truth)
+        decoded = decoded.reshape(-1,self.aa_dim)
+        ce = self.criterion(decoded, groud_truth[:decoded.shape[0]])
+        #ce = 0
         KLD = (-0.5 * torch.sum(sig - torch.pow(mu, 2) - torch.exp(sig) + 1, 1)).mean().squeeze()
         clamp_KLD = torch.clamp(KLD.mean(), min=habits_lambda).squeeze()
         loss = ce + clamp_KLD * kld_weight

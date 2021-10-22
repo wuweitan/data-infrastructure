@@ -16,7 +16,7 @@ import networkx as nx # for graph similarity
 import pdb_helper
 
 
-def sequence_indentity(self, seq_1, seq_2, version = 'BLAST'):
+def sequence_indentity(seq_1, seq_2, version = 'BLAST'):
     '''Calculate the identity between two sequences
 
     :param seq_1, seq_2: protein sequences
@@ -33,7 +33,7 @@ def sequence_indentity(self, seq_1, seq_2, version = 'BLAST'):
 
     if version == 'BLAST':
         alignments = pairwise2.align.globaldd(X,Y, matrix,-11,-1,-11,-1)   # Consistent with Blast P grobal alignment
-        max_iden = 
+        max_iden = 0
         for i in alignments:
             same = 0
             for j in xrange(i[-1]):
@@ -55,9 +55,11 @@ def sequence_indentity(self, seq_1, seq_2, version = 'BLAST'):
             if same > max_same:
                 max_same = same
         identity = float(max_same)/float(l)
+    else:
+        print('Error! No sequence identity version named %s!'%version)
     return identity
 
-def TM_score(self, pdb_1, pdb_2):
+def TM_score(pdb_1, pdb_2):
     '''Calculate the TM-scores between two protein structures
 
     :param pdb_1, pdb_2: path of the pdb files

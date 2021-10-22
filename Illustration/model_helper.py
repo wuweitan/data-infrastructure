@@ -436,9 +436,9 @@ def model_save(model, model_path):
     return 0
 
 def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001, 
-                 clip = 2.0, kld_weight = 0, kld_max = 1.0, kld_start_inc = 0, kld_inc = 0.0001, habits_lambda = 1.0
+                 clip = 2.0, kld_weight = 0, kld_max = 1.0, kld_start_inc = 0, kld_inc = 0.0001, habits_lambda = 1.0,
                  loss_file = None, log_file = None, eval_file = None, eval_inter = 1, model_path = None, save_inter = 1, balance = False,
-                 temperature = None, temperature_min = None, temperature_dec = None, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3):
+                 temperature = 1, temperature_min = 0.1, temperature_dec = 0.0001, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -494,7 +494,9 @@ def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001,
 
             ### loss calculation ###     
 
-            loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, seq_len, kld_weight, ele_weight)
+            #print(out.shape, seq.shape, batch_num_nodes)
+            #loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, seq_len, kld_weight, ele_weight)
+            loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, kld_weight)
 
             ### record ###
 

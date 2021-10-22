@@ -116,7 +116,7 @@ def Dataloader(database = 'SCOPe_debug', path = '../Datasets/SCOPe/', task = 'Di
 
 
 def dataloading(Seq_file, X_file, A_file, Y_file,label = None, seq_mask_dim = 21,features = ['len', 'ss', 'level'],  
-                batch_size=64,normalize=False,shuffle=False,max_SSE=None,max_nodes=60,num_workers=1,test_num=None):
+                batch_size=64,normalize=False,shuffle=False,max_SSE=35,max_nodes=60,num_workers=1,test_num=None):
     """
     Load the data from the files.
     Seq_file: file of the embedded sequences
