@@ -22,9 +22,9 @@ from tqdm import tqdm
 #from torch_geometric.nn import global_mean_pool
 from copy import deepcopy
 
-######################################## Pretrain #######################################
+######################################## Discriminative #######################################
 
-def evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hierarchy_dict=None, max_num_examples=None, weight = None):
+def Disc_evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hierarchy_dict=None, max_num_examples=None, weight = None):
     model.eval()
 
     labels = []
@@ -139,7 +139,6 @@ def evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hier
                                             #                       sample_weight = weight_list[label_index_dict[level]])} 
     return result
 
-############################# Training Function #############################################
 
 def accu_print(result, label, kind, epoch, best_result):
     if label != 'hierarchy':
@@ -176,7 +175,8 @@ def accu_save(result, label, kind, epoch, total_time, all_time, accu_path):
             accu_file.write('{val:<25}\n'.format(val = all_time))
     accu_file.close()
     return 0
-    
+
+######################################## Generative #######################################
 
 def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3):
 
@@ -212,3 +212,5 @@ def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE =
         seq_complete_all += seq_complete
 
     return seq_all, seq_complete_all
+
+########################### A
