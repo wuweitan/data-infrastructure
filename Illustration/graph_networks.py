@@ -565,9 +565,9 @@ class GraphLevelJointEmbedding(GraphLevelEmbedding):
         ### Initialize the weights ###
         for m in self.modules():
             if isinstance(m, GraphConv):
-                m.weight.data = init.xavier_uniform(m.weight.data, gain=nn.init.calculate_gain('relu'))
+                m.weight.data = init.xavier_uniform_(m.weight.data, gain=nn.init.calculate_gain('relu'))
                 if m.bias is not None:
-                    m.bias.data = init.constant(m.bias.data, 0.0)
+                    m.bias.data = init.constant_(m.bias.data, 0.0)
       
     def forward(self, x, adj, seq=None, seq_mask=None, **kwargs):
         ### GNN

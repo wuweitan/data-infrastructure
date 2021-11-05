@@ -4,6 +4,7 @@ import numpy as np
 import sklearn.metrics as metrics
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 #from tensorboardX import SummaryWriter
 
@@ -21,6 +22,12 @@ from tqdm import tqdm
 #from torch_geometric.nn.inits import uniform
 #from torch_geometric.nn import global_mean_pool
 from copy import deepcopy
+
+from Bio.PDB.DSSP import dssp_dict_from_pdb_file
+from Bio import pairwise2
+from Bio.SubsMat import MatrixInfo as matlist #SZ add
+
+matrix = matlist.blosum62
 
 ######################################## Discriminative #######################################
 
@@ -178,6 +185,77 @@ def accu_save(result, label, kind, epoch, total_time, all_time, accu_path):
 
 ######################################## Generative #######################################
 
+def seq_recover(tensor_list):
+    """
+    recover the tensor to element-wise strings
+    input: list of tensors or arrays
+    """
+    AA_dict = {0:'A', 1:'R', 2:'N', 3:'D', 4:'C', 5:'Q', 6:'E', 7:'G', 8:'H', 9:'I', 10:'L',
+               11:'K', 12:'M', 13:'F', 14:'P', 15:'S', 16:'T', 17:'W', 18:'Y', 19:'V'}
+
+    seq_ele = []
+    for node in tensor_list:
+        node = np.argmax(node, axis = -1)
+        s = ''
+        for i in node:
+            if i == 20:
+                break
+            s += AA_dict[int(i)]
+        seq_ele.append(s)
+    return seq_ele
+
+###### perplexity ######
+
+def perplexity(output, target):
+    return torch.exp(F.cross_entropy(out, target, reduction = 'none'))
+
+###### identity ######
+
+def sequence_indentity(seq_1, seq_2, version = 'BLAST'):
+    '''Calculate the identity between two sequences
+
+    :param seq_1, seq_2: protein sequences
+    :type seq_1, seq_2: str
+    :param version: squence identity version
+    :type version: str, optional
+    :return: sequence identity
+    :rtype: float
+    '''
+    l_x = len(seq_1)
+    l_y = len(seq_2)
+    X = seq_1.upper()
+    Y = seq_2.upper()
+
+    if version == 'BLAST':
+        alignments = pairwise2.align.globaldd(X,Y, matrix,-11,-1,-11,-1)   # Consistent with Blast P grobal alignment
+        max_iden = 0
+        for i in alignments:
+            same = 0
+            for j in xrange(i[-1]):
+                if i[0][j] == i[1][j] and i[0][j] != '-':
+                    same += 1
+            iden = float(same)/float(i[-1])
+            if iden > max_iden:
+                max_iden = iden
+        identity = max_iden
+    elif version == 'Gap_exclude':
+        l = min(l_x,l_y)
+        alignments = pairwise2.align.globaldd(X,Y, matrix,-11,-1,-11,-1)   # Consistent with Blast P grobal alignment
+        max_same = 0
+        for i in alignments:
+            same = 0
+            for j in xrange(i[-1]):
+                if i[0][j] == i[1][j] and i[0][j] != '-':
+                    same += 1
+            if same > max_same:
+                max_same = same
+        identity = float(max_same)/float(l)
+    else:
+        print('Error! No sequence identity version named %s!'%version)
+    return identity
+
+###### Pipeline ######
+
 def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3):
 
     start_time = time.time()
@@ -186,6 +264,8 @@ def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE =
 
     seq_all = []
     seq_complete_all = []
+    iden_all = []
+    ppl_all = []
 
     for batch_idx, data in enumerate(dataset):
         ### load the batch data ###
@@ -196,6 +276,12 @@ def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE =
         h0 = Variable(data['feats'].float())#.cuda()
         batch_num_nodes = data['num_nodes'].int().numpy()
 
+        target = []
+        seq_nature = []
+        for i,seq_tr in enumerate(seq_true):
+            target += list(torch.max(seq_tr[:batch_num_nodes[i]], -1)[1].numpy().reshape(-1))
+            seq_nature += seq_recover(seq_tr[:batch_num_nodes[i]])
+
         #if balance:
         #    batch_size = batch_num_nodes.shape[0]
         #    ele_weight = torch.cat([data['weights'][i][:batch_num_nodes[i]] for i in range(batch_size)]).float()#.cuda()
@@ -203,14 +289,19 @@ def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE =
         #else:
         #    ele_weight = None
 
-        #iteration_idx += 1
-
         ### forward ###
 
         out, seq, seq_complete = model.generator(h0, adj, batch_num_nodes, seq_mask, n_steps = seq_len, temperature = temperature, MAX_SAMPLE = MAX_SAMPLE, k=k)
         seq_all += seq
         seq_complete_all += seq_complete
 
-    return seq_all, seq_complete_all
+        ### evaluation
 
-########################### A
+        ppl = perplexity(ou1.reshape(-1, out.shape[-1]), target):
+        ppl_all += list(ppl)
+
+        for i,ele_s in enumerate(seq):
+            iden_all.append(sequence_indentity(ele_s, seq_nature[i]))
+
+    return seq_all, seq_complete_all, iden_all, ppl_all
+

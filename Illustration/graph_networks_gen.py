@@ -746,9 +746,9 @@ class VAE_Container(nn.Module):
         ### Initialize the weights ###
         for m in self.modules():
             if isinstance(m, GraphConv):
-                m.weight.data = init.xavier_uniform(m.weight.data, gain=nn.init.calculate_gain('relu'))
+                m.weight.data = init.xavier_uniform_(m.weight.data, gain=nn.init.calculate_gain('relu'))
                 if m.bias is not None:
-                    m.bias.data = init.constant(m.bias.data, 0.0)
+                    m.bias.data = init.constant_(m.bias.data, 0.0)
 
     def forward(self, x, adj, seq, node_num, mask=None, n_steps = 35, temperature = 1.0, MAX_SAMPLE = 'top-k', k = 3, **kwargs):
         batch_size, max_node_num, max_seq_len, resi_dim  = seq.shape

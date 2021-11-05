@@ -511,7 +511,7 @@ def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001,
             ### gradient clip ###
 
             loss.backward()
-            ec = nn.utils.clip_grad_norm(model.parameters(), clip)
+            ec = nn.utils.clip_grad_norm_(model.parameters(), clip)
             optimizer.step()
 
             if iteration_idx > kld_start_inc and kld_weight < kld_max:
