@@ -321,3 +321,91 @@ class GraphSampler(torch.utils.data.Dataset):
                 'label':self.label_all[idx],
                 'num_nodes': num_nodes}
 
+######################## For antibody design ######################################
+
+class ClusterSampler(torch.utils.data.Dataset):
+    '''
+    Load Data for training: one sample for each cluster
+    '''
+    def __init__(self, data_dict, debug = False, sele_num = 100):
+        '''
+        Data_dictionary: set -> cluster -> sample -> features
+        '''
+        self.clusters_list = list(data_dict.keys())
+        if debug:
+            cluster_num = sele_num
+            self.clusters_list = self.clusters_list[:cluster_num]
+            #print('Debugging...')
+            #print('%s clusters loaded...'%cluster_num)
+        else:
+            cluster_num = len(self.clusters_list)
+            #print('Training...')
+            #print('%s clusters loaded...'%cluster_num)
+
+        self.seq_ag_all = []
+        self.seq_ab_all = []
+        self.seq_ab_noCDR = []
+        self.seq_ab_mask = []
+        self.cdr_ground_all = []
+        self.feat_all = []
+        self.adj_all  = []= []
+        self.graph_idx_mask_all = []
+        self.ag_indexes_all = []
+        self.ab_indexes_all = []
+        self.cdr_mask_all = []
+        self.seq_len_ab_all = []
+        self.seq_len_ag_all = []
+        self.epi_size_all = []
+        self.para_size_all = []
+        self.weight_all = []
+
+        sample_idx = 0
+        self.idx_dict = {}
+        for cluster in self.clusters_list:
+            self.idx_dict[cluster] = []
+            for sample in data_dict[cluster].keys():
+                self.idx_dict[cluster].append(sample_idx)
+                sample_idx += 1
+
+                self.seq_ag_all.append(data_dict[cluster][sample]['seq_ag_onehot'])
+                self.seq_ab_all.append(data_dict[cluster][sample]['seq_ab_onehot'])
+                self.seq_ab_noCDR.append(data_dict[cluster][sample]['seq_ab_onehot_noCDR'])
+                self.seq_ab_mask.append(data_dict[cluster][sample]['seq_ab_onehot_masked'])
+                self.cdr_ground_all.append(data_dict[cluster][sample]['cdr_groundtruth'])
+                self.feat_all.append(data_dict[cluster][sample]['feat'])
+                self.adj_all.append(data_dict[cluster][sample]['adj'])
+                self.graph_idx_mask_all.append(data_dict[cluster][sample]['graph_idx_mask'])
+                self.ag_indexes_all.append(data_dict[cluster][sample]['ag_indexes'])
+                self.ab_indexes_all.append(data_dict[cluster][sample]['ab_indexes'])
+                self.cdr_mask_all.append(data_dict[cluster][sample]['cdr_mask'])
+                self.seq_len_ab_all.append(data_dict[cluster][sample]['seq_len_ab'])
+                self.seq_len_ag_all.append(data_dict[cluster][sample]['seq_len_ag'])
+                self.epi_size_all.append(data_dict[cluster][sample]['epitope_size'])
+                self.para_size_all.append(data_dict[cluster][sample]['paratope_size'])
+                self.weight_all.append(data_dict[cluster][sample]['weight'])
+
+        print('%d clusters and %d samples loaded.'%(cluster_num, sample_idx))
+
+    def __len__(self):
+        return len(self.clusters_list)
+
+    def __getitem__(self, idx):
+        cluster_sele = self.clusters_list[idx]
+        sample_idx = np.random.choice(self.idx_dict[cluster_sele])
+
+        return {'seq_ag_onehot': self.seq_ag_all[sample_idx].copy(),
+                'seq_ab_onehot': self.seq_ab_all[sample_idx].copy(),
+                'seq_ab_onehot_noCDR': self.seq_ab_noCDR[sample_idx].copy(),
+                'seq_ab_onehot_masked': self.seq_ab_mask[sample_idx].copy(),
+                'cdr_groundtruth': self.cdr_ground_all[sample_idx].copy(),
+                'feat': self.feat_all[sample_idx].copy(),
+                'adj': self.adj_all[sample_idx].copy(),
+                'graph_idx_mask': self.graph_idx_mask_all[sample_idx].copy(),
+                'ag_indexes': self.ag_indexes_all[sample_idx].copy(),
+                'ab_indexes': self.ab_indexes_all[sample_idx].copy(),
+                'cdr_mask': self.cdr_mask_all[sample_idx].copy(),
+                'seq_len_ab': self.seq_len_ab_all[sample_idx].copy(),
+                'seq_len_ag': self.seq_len_ag_all[sample_idx].copy(),
+                'epitope_size': self.epi_size_all[sample_idx],
+                'paratope_size': self.para_size_all[sample_idx],
+                'weight': self.weight_all[sample_idx]}
