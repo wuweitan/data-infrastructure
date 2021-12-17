@@ -45,4 +45,4 @@ A hierarchical tree will be provided (like SCOPe, to show the clusters of struct
 * fnat
 
 # Challenges
-For the prepared tasks go the folder *Challenges*.
+For the prepared tasks go the folder [Challenges](https://github.tamu.edu/shen-group/data-buffet/tree/shaowen/Challenges).
