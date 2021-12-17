@@ -15,7 +15,7 @@ In this challenge a feature matrix and an adjacency tensor would be provided for
 For each sample 1 feature matrix (Numpy array, max_node_amount(60) x feat_dim(11)) and 1 adjacency tensor (Numpy array, channel_num(5) x max_node_amount(60) x max_node_amount(60); for homogeneous graph channel_num = 1). The datasets are stored as lists of Numpy arrays and the label vectors are stored as Numpy arrays. During the training process the feature matrix and the adjacency matrix will be transformed into pytorch Tensors (float).
 
 ### Evaluation Criteria: 
-Accuracy, F1-score.
+Accuracy, precision, recall, F1-score.
 
 ### Requirement
 The GNN can only and must take the feature matrix and the adjacency tensor as the input.
@@ -29,7 +29,7 @@ In this challenge the user need to provide
 For each sample 1 feature matrix (Numpy array), 1 adjacency matrix (Numpy array) and . The datasets are stored as lists of Numpy arrays and the label vectors are stored as Numpy arrays. During the training process the feature matrix and the adjacency matrix will be transformed into pytorch Tensors (float).
 
 ### Evaluation Criteria: 
-Perplexity, seqence identity.
+Perplexity, cross-entropy, seqence identity.
 
 ### Requirement:
 The GNN can only and must take the feature matrix, the adjacency tensor and the sequence tensor as the input.
