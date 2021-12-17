@@ -470,7 +470,7 @@ def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001,
 
             ### loss calculation ###     
 
-            loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, seq_len, kld_weight, ele_weight)
+            loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, kld_weight)
 
             ### record ###
 

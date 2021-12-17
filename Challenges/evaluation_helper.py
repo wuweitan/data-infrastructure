@@ -59,6 +59,25 @@ def make_path(path):
             os.mkdir(current_path)
     return 0
 
+def seq_recover(seq):
+    """
+    recover the tensor to element-wise strings
+    """
+    AA_dict = {0:'A', 1:'R', 2:'N', 3:'D', 4:'C', 5:'Q', 6:'E', 7:'G', 8:'H', 9:'I', 10:'L',
+               11:'K', 12:'M', 13:'F', 14:'P', 15:'S', 16:'T', 17:'W', 18:'Y', 19:'V', 20:'!'}
+
+    seq = seq.max(dim=-1)[1]
+    seq_ele = []
+    for node in seq:
+        s = ''
+        if node.shape[0] > 0:
+            for i in node:
+                if i == 20:
+                    break
+                s += AA_dict[int(i)]
+        seq_ele.append(s)
+    return seq_ele
+
 def cdr_seq_recover(cdr_groundtruth, cdr_mask):
     """
     Recover the cdr vectors to sequences.
@@ -414,7 +433,7 @@ def perplexity(output, target):
     return torch.exp(F.cross_entropy(output, target, reduction = 'none'))
 
 def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3,
-                   heterogeous=True, USE_CUDA = True):
+                   balance = False, heterogeous=True, USE_CUDA = True):
 
     start_time = time.time()
 
@@ -436,7 +455,7 @@ def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE =
         batch_num_nodes = data['num_nodes'].int().numpy()
 
         if USE_CUDA:
-            seq = seq.cuda()
+            seq_true = seq_true.cuda()
             seq_mask = seq_mask.cuda()
             adj = adj.cuda()
             h0 = h0.cuda()
