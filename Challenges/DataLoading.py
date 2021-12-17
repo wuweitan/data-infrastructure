@@ -73,10 +73,10 @@ def to_nxGragh(X,A,Y,heter=False):
 
 ################################ Data Loader ####################################
 
-def Dataloader(database = 'SCOPe_debug', path = '../Datasets/SCOPe/', task = 'Discriminative', batch_size = 16, seq_mask_dim = 21, 
+def Dataloader(database = 'SCOPe', path = '../Datasets/SCOPe/', task = 'Discriminative', batch_size = 16, seq_mask_dim = 21, 
                normalize=False, shuffle=[True,False,False]):
 
-    if not database in ['SCOPe_debug']:
+    if not database in ['SCOPe', 'SCOPe_debug']:
         print('Error! No database named %s!'%database)
         return None
     else:
@@ -86,7 +86,9 @@ def Dataloader(database = 'SCOPe_debug', path = '../Datasets/SCOPe/', task = 'Di
         #download database
         if not os.path.exists(zip_path):
             print('Downloading the database...')
-            if database == 'SCOPe_debug':
+            if database == 'SCOPe':
+                file_id = '1wc9o9p7nyg8s95_MO-UI80qqKVoSf4L9'
+            elif database == 'SCOPe_debug':
                 file_id = '1BFsBdQzLiRKmc1lDOZBwREcCnfg4EiRU'
             gdd.download_file_from_google_drive(file_id=file_id, dest_path=zip_path, unzip=True)
         else:
@@ -100,7 +102,17 @@ def Dataloader(database = 'SCOPe_debug', path = '../Datasets/SCOPe/', task = 'Di
         print('Task: %s'%task)
         print('Shuffle: %s'%' '.join([str(char) for char in shuffle]))
         for j,sk in enumerate(['training', 'validation','test']):
-            if database == 'SCOPe_debug':
+            if database == 'SCOPe':
+                Seq_file = path + '%s_Seq_TOPS+_%s.list'%(task_title,sk)
+                X_file = path + '%s_X_TOPS+_%s.list'%(task_title,sk)
+                A_file = path + '%s_Adj_TOPS+_dire_hbond_%s.list'%(task_title,sk)
+                Y_file = path + 'Y_%s_fold.txt'%sk
+                data_loader, length, class_num = dataloading(Seq_file, X_file, A_file, Y_file, label = None,
+                                                             seq_mask_dim = 21, batch_size=batch_size, normalize=normalize, shuffle=shuffle[j])
+                datasets[sk] = data_loader
+                stat_dict[sk] = length
+
+            elif database == 'SCOPe_debug':
                 Seq_file = path + '%s_Seq_TOPS+-RCSB_%s_debug.list'%(task_title,sk)
                 X_file = path + '%s_X_TOPS+-RCSB_%s_debug.list'%(task_title,sk)
                 A_file = path + '%s_Adj_TOPS+-RCSB_dire_hbond_%s_debug.list'%(task_title,sk)

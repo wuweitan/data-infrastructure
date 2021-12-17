@@ -327,9 +327,9 @@ class GNN_Container(nn.Module):
             if self.pooling == 'max':
                 node_vec,_ = torch.max(node_vec, dim=-2)
             elif self.pooling == 'sum':
-                node_vec,_ = torch.sum(node_vec, dim=-2)
+                node_vec = torch.sum(node_vec, dim=-2)
             elif self.pooling == 'mean':
-                node_vec,_ = torch.mean(node_vec, dim=-2)
+                node_vec = torch.mean(node_vec, dim=-2)
             else:
                 print('Error! No pooling method named %s!'%self.pooling)
         ypred = self.pred_model(node_vec)

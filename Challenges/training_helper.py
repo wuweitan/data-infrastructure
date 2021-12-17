@@ -20,11 +20,6 @@ import DataLoading
 #from torch_geometric.nn import global_mean_pool
 from copy import deepcopy
 
-#from Bio import pairwise2
-#from Bio.SubsMat import MatrixInfo as matlist
-
-#matrix = matlist.blosum62
-
 ############################## Accessory Functions #######################################
 
 def dict_save(dictionary,path):
@@ -69,7 +64,8 @@ def hierarchy_arrange(soft_vec, arrange_index):
         soft_vec = soft_vec[:,idx:]
     return out_vec
 
-def evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hierarchy_dict=None, max_num_examples=None, weight = None):
+def evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hierarchy_dict=None, max_num_examples=None, weight = None, 
+             heterogeous = True, USE_CUDA = True):
     model.eval()
 
     labels = []
@@ -94,15 +90,18 @@ def evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hier
         label_index_dict = {'family':0, 'super-family':1, 'fold':2, 'class':3}
 
     for batch_idx, data in enumerate(dataset):
-        seq = Variable(data['seq'].float(), requires_grad=False)#.cuda()
-        seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)#.cuda()
-        adj = Variable(data['adj'].float(), requires_grad=False)#.cuda()
+        #seq = Variable(data['seq'].float(), requires_grad=False)
+        #seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)
+        adj = Variable(data['adj'].float(), requires_grad=False)
+        if not heterogeous:
+            adj = torch.sum(adj, axis=0).unsqueeze(0)
         h0 = Variable(data['feats'].float())#.cuda()
-        batch_num_nodes = data['num_nodes'].int().numpy()
 
-        #print(labels)
+        if USE_CUDA:
+            adj = adj.cuda()
+            h0 = h0.cuda()
 
-        ypred = model(h0, adj, seq, seq_mask)
+        ypred = model(h0, adj)
 
         if label != 'hierarchy':
             labels.append(data['label'].long().numpy())
@@ -150,38 +149,38 @@ def evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hier
         labels = np.hstack(labels)
         preds = np.hstack(preds)
 
-        result = {#'prec': metrics.precision_score(labels, preds, average='macro', sample_weight = weight_list),
-                  #'recall': metrics.recall_score(labels, preds, average='macro', sample_weight = weight_list),
-                  'acc': metrics.accuracy_score(labels, preds, sample_weight = weight_list)}
-                  #'F1': metrics.f1_score(labels, preds, average="micro", sample_weight = weight_list)}
+        result = {'prec': metrics.precision_score(labels, preds, average='macro', sample_weight = weight_list),
+                  'recall': metrics.recall_score(labels, preds, average='macro', sample_weight = weight_list),
+                  'acc': metrics.accuracy_score(labels, preds, sample_weight = weight_list),
+                  'F1': metrics.f1_score(labels, preds, average="micro", sample_weight = weight_list)}
     else:
         preds['from_family'] = np.array(preds['from_family']).T
 
         result = {'from_softmax':{},'from_family':{}}
 
-        result['from_softmax']['family'] = {#'prec': metrics.precision_score(labels[:,0], preds['from_softmax'][0], average='macro', 
-                                            #                                sample_weight = weight_list[label_index_dict['family']]),
-                                            #'recall': metrics.recall_score(labels[:,0], preds['from_softmax'][0], average='macro',
-                                            #                               sample_weight = weight_list[label_index_dict['family']]),
+        result['from_softmax']['family'] = {'prec': metrics.precision_score(labels[:,0], preds['from_softmax'][0], average='macro', 
+                                                                            sample_weight = weight_list[label_index_dict['family']]),
+                                            'recall': metrics.recall_score(labels[:,0], preds['from_softmax'][0], average='macro',
+                                                                           sample_weight = weight_list[label_index_dict['family']]),
                                             'acc': metrics.accuracy_score(labels[:,0], preds['from_softmax'][0],
-                                                                          sample_weight = weight_list[label_index_dict['family']])}
-                                            #'F1': metrics.f1_score(labels[:,0], preds['from_softmax'][0], average="micro",
-                                            #                       sample_weight = weight_list[label_index_dict['family']])}
+                                                                          sample_weight = weight_list[label_index_dict['family']]),
+                                            'F1': metrics.f1_score(labels[:,0], preds['from_softmax'][0], average="micro",
+                                                                   sample_weight = weight_list[label_index_dict['family']])}
         result['from_family']['family'] = result['from_softmax']['family']
         for pred_kind in ['from_softmax','from_family']:
             for level in ['super-family','fold','class']:
-                result[pred_kind][level] = {#'prec': metrics.precision_score(labels[:,label_index_dict[level]], 
-                                            #                                preds[pred_kind][label_index_dict[level]], average='macro',
-                                            #                                sample_weight = weight_list[label_index_dict[level]]),
-                                            #'recall': metrics.recall_score(labels[:,label_index_dict[level]], 
-                                            #                               preds[pred_kind][label_index_dict[level]], average='macro',
-                                            #                               sample_weight = weight_list[label_index_dict[level]]),
+                result[pred_kind][level] = {'prec': metrics.precision_score(labels[:,label_index_dict[level]], 
+                                                                            preds[pred_kind][label_index_dict[level]], average='macro',
+                                                                            sample_weight = weight_list[label_index_dict[level]]),
+                                            'recall': metrics.recall_score(labels[:,label_index_dict[level]], 
+                                                                           preds[pred_kind][label_index_dict[level]], average='macro',
+                                                                           sample_weight = weight_list[label_index_dict[level]]),
                                             'acc': metrics.accuracy_score(labels[:,label_index_dict[level]],
                                                                           preds[pred_kind][label_index_dict[level]],
-                                                                          sample_weight = weight_list[label_index_dict[level]])}
-                                            #'F1': metrics.f1_score(labels[:,label_index_dict[level]], 
-                                            #                       preds[pred_kind][label_index_dict[level]], average='macro',
-                                            #                       sample_weight = weight_list[label_index_dict[level]])} 
+                                                                          sample_weight = weight_list[label_index_dict[level]]),
+                                            'F1': metrics.f1_score(labels[:,label_index_dict[level]], 
+                                                                   preds[pred_kind][label_index_dict[level]], average='macro',
+                                                                   sample_weight = weight_list[label_index_dict[level]])} 
     return result
 
 def accu_print(result, label, kind, epoch, best_result):
@@ -222,7 +221,8 @@ def accu_save(result, label, kind, epoch, total_time, all_time, accu_path):
 
 def discriminative_train(dataset, model, num_epochs, val_dataset=None, test_dataset=None, batch_size=16, max_num_examples=None,
                          eva_period=1, save_period=1, hierarchy_dict=None, model_path = None, log_path=None,
-                         loss_kind='softmax', learning_rate=0.001, clip=2.0, lambdas=[1,1,1], weight=None, arrange_index=None):
+                         loss_kind='softmax', learning_rate=0.001, clip=2.0, lambdas=[1,1,1], weight=None, arrange_index=None, 
+                         heterogeous = True, USE_CUDA = True):
 
     ######################## Training log files #######################################
     if log_path:
@@ -249,7 +249,6 @@ def discriminative_train(dataset, model, num_epochs, val_dataset=None, test_data
         loss_all_file.close()
         loss_ave_file.close()
         accu_file.close()
-
     else:
         accu_path = None
 
@@ -295,22 +294,29 @@ def discriminative_train(dataset, model, num_epochs, val_dataset=None, test_data
             begin_time = time.time()
             model.zero_grad()
 
-            seq = Variable(data['seq'].float(), requires_grad=False)#.cuda()
-            seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)#.cuda()
-            adj = Variable(data['adj'].float(), requires_grad=False)#.cuda()
-            h0 = Variable(data['feats'].float(), requires_grad=False)#.cuda()
-            label = Variable(data['label'].long())#.cuda()
-            #weight = Variable(data['weight'].float(), requires_grad=False)#.cuda()
+            #seq = Variable(data['seq'].float(), requires_grad=False)
+            #seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)
+            adj = Variable(data['adj'].float(), requires_grad=False)
+            if not heterogeous:
+                adj = torch.sum(adj, axis=0).unsqueeze(0)
+            h0 = Variable(data['feats'].float(), requires_grad=False)
+            label = Variable(data['label'].long())
+            #weight = Variable(data['weight'].float(), requires_grad=False)
 
-            ypred = model(h0, adj, seq, seq_mask)
-            #loss = model.loss(ypred, label = label, loss_type = loss_kind, lambdas = lambdas, weight = weight['training'], arrange_index = arrange_index)
-            loss = model.loss(ypred, label = label, loss_type = loss_kind, lambdas = lambdas, arrange_index = arrange_index)
+            if USE_CUDA:
+                adj = adj.cuda()
+                h0 = h0.cuda()
+                label = label.cuda()
+                #weight = weight.cuda()
+
+            ypred = model(h0, adj)
+            loss = model.loss(ypred, label = label, loss_type = loss_kind, lambdas = lambdas, weight = weight['training'], arrange_index = arrange_index)
 
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), clip)
             optimizer.step()
 
-            ###### record training loss ##########
+            ###### record training loss ##
 
             loss = loss.cpu()
 
@@ -336,19 +342,22 @@ def discriminative_train(dataset, model, num_epochs, val_dataset=None, test_data
 
         if epoch == 1 or epoch % eva_period == 0:
             result = evaluate(dataset, model, batch_size, label=loss_kind, arrange_index=arrange_index,
-                              hierarchy_dict=hierarchy_dict, max_num_examples = max_num_examples, weight = weight['training'])
+                              hierarchy_dict=hierarchy_dict, max_num_examples = max_num_examples, 
+                              weight = weight['training'], USE_CUDA = USE_CUDA)
             train_result_all[epoch] = result
             best_train_result = accu_print(result, loss_kind, 'Training', epoch, best_train_result)
 
             if val_dataset is not None:
                 val_result = evaluate(val_dataset, model, batch_size, label=loss_kind, arrange_index=arrange_index,
-                                      hierarchy_dict=hierarchy_dict, max_num_examples = max_num_examples, weight = weight['validation'])
+                                      hierarchy_dict=hierarchy_dict, max_num_examples = max_num_examples, 
+                                      weight = weight['validation'], USE_CUDA = USE_CUDA)
                 val_result_all[epoch] = val_result
                 best_val_result = accu_print(val_result, loss_kind, 'Validation', epoch, best_val_result)
 
             if test_dataset is not None:
                 test_result = evaluate(test_dataset, model, batch_size, label=loss_kind, arrange_index=arrange_index,
-                                       hierarchy_dict=hierarchy_dict, max_num_examples = max_num_examples, weight = weight['test'])
+                                       hierarchy_dict=hierarchy_dict, max_num_examples = max_num_examples, 
+                                       weight = weight['test'], USE_CUDA = USE_CUDA)
                 test_result_all[epoch] = test_result
                 best_test_result = accu_print(test_result, loss_kind, 'Test', epoch, best_test_result)
 
@@ -384,7 +393,6 @@ def discriminative_train(dataset, model, num_epochs, val_dataset=None, test_data
     if test_dataset is not None:
         results_all['test'] = test_result_all
         print('Best test result: %.4f (epoch %d)'%(best_test_result['acc'],best_test_result['epoch']))
-
     return model, optimizer, results_all
 
 def model_save(model, model_path):
@@ -398,7 +406,8 @@ def model_save(model, model_path):
 def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001,
                  clip = 2.0, kld_weight = 0, kld_max = 1.0, kld_start_inc = 0, kld_inc = 0.0001, habits_lambda = 1.0,
                  loss_file = None, log_file = None, eval_file = None, eval_inter = 1, model_path = None, save_inter = 1, balance = False,
-                 temperature = 1, temperature_min = 0.1, temperature_dec = 0.0001, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3):
+                 temperature = 1, temperature_min = 0.1, temperature_dec = 0.0001, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3, 
+                 heterogeous=True, USE_CUDA = True):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -428,12 +437,19 @@ def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001,
 
         for batch_idx, data in enumerate(train_set):
             ### load the batch data ###
-            seq = Variable(data['seq'].float(), requires_grad=False)#.cuda()
-            seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)#.cuda()
-            adj = Variable(data['adj'].float(), requires_grad=False)#.cuda()
-
-            h0 = Variable(data['feats'].float())#.cuda()
+            seq = Variable(data['seq'].float(), requires_grad=False)
+            seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)
+            adj = Variable(data['adj'].float(), requires_grad=False)
+            if not heterogeous:
+                adj = torch.sum(adj, axis=0).unsqueeze(0)
+            h0 = Variable(data['feats'].float())
             batch_num_nodes = data['num_nodes'].int().numpy()
+
+            if USE_CUDA:
+                seq = seq.cuda()
+                seq_mask = seq_mask.cuda()
+                adj = adj.cuda()
+                h0 = h0.cuda()
 
             if balance:
                 batch_size = batch_num_nodes.shape[0]
@@ -454,9 +470,7 @@ def VAE_training(model, train_set, Epoch_NUM = 5, learning_rate = 0.0001,
 
             ### loss calculation ###     
 
-            #print(out.shape, seq.shape, batch_num_nodes)
-            #loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, seq_len, kld_weight, ele_weight)
-            loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, kld_weight)
+            loss, ce, KLD = model.vae_loss(mu, sig, out, seq, batch_num_nodes, habits_lambda, seq_len, kld_weight, ele_weight)
 
             ### record ###
 

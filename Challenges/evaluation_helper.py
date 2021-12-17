@@ -3,8 +3,6 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.autograd as autograd
-import matplotlib
-import matplotlib.pyplot as plt
 import sklearn.metrics as metrics
 import torch.nn.functional as F
 
@@ -87,7 +85,7 @@ def cdr_seq_recover(cdr_groundtruth, cdr_mask):
 
 ######################################## Discriminative #######################################
 
-def Disc_evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hierarchy_dict=None, max_num_examples=None, weight = None):
+def Disc_evaluate(dataset, model, batch_size=64, label=None, arrange_index=None, hierarchy_dict=None, max_num_examples=None, weight = None, heterogeous=True, USE_CUDA = True):
     model.eval()
 
     labels = []
@@ -112,15 +110,22 @@ def Disc_evaluate(dataset, model, batch_size=64, label=None, arrange_index=None,
         label_index_dict = {'family':0, 'super-family':1, 'fold':2, 'class':3}
 
     for batch_idx, data in enumerate(dataset):
-        seq = Variable(data['seq'].float(), requires_grad=False)#.cuda()
-        seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)#.cuda()
-        adj = Variable(data['adj'].float(), requires_grad=False)#.cuda()
-        h0 = Variable(data['feats'].float())#.cuda()
+        #seq = Variable(data['seq'].float(), requires_grad=False)
+        #seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)
+        adj = Variable(data['adj'].float(), requires_grad=False)
+        if not heterogeous:
+            adj = torch.sum(adj, axis=0).unsqueeze(0)
+        h0 = Variable(data['feats'].float())
         batch_num_nodes = data['num_nodes'].int().numpy()
 
         #print(labels)
+        if USE_CUDA:
+            #seq = seq.cuda()
+            #seq_mask = seq_mask.cuda()
+            adj = adj.cuda()
+            h0 = h0.cuda()
 
-        ypred = model(h0, adj, seq, seq_mask)
+        ypred = model(h0, adj)
 
         if label != 'hierarchy':
             labels.append(data['label'].long().numpy())
@@ -168,38 +173,38 @@ def Disc_evaluate(dataset, model, batch_size=64, label=None, arrange_index=None,
         labels = np.hstack(labels)
         preds = np.hstack(preds)
 
-        result = {#'prec': metrics.precision_score(labels, preds, average='macro', sample_weight = weight_list),
-                  #'recall': metrics.recall_score(labels, preds, average='macro', sample_weight = weight_list),
-                  'acc': metrics.accuracy_score(labels, preds, sample_weight = weight_list)}
-                  #'F1': metrics.f1_score(labels, preds, average="micro", sample_weight = weight_list)}
+        result = {'prec': metrics.precision_score(labels, preds, average='macro', sample_weight = weight_list),
+                  'recall': metrics.recall_score(labels, preds, average='macro', sample_weight = weight_list),
+                  'acc': metrics.accuracy_score(labels, preds, sample_weight = weight_list),
+                  'F1': metrics.f1_score(labels, preds, average="micro", sample_weight = weight_list)}
     else:
         preds['from_family'] = np.array(preds['from_family']).T
 
         result = {'from_softmax':{},'from_family':{}}
 
-        result['from_softmax']['family'] = {#'prec': metrics.precision_score(labels[:,0], preds['from_softmax'][0], average='macro', 
-                                            #                                sample_weight = weight_list[label_index_dict['family']]),
-                                            #'recall': metrics.recall_score(labels[:,0], preds['from_softmax'][0], average='macro',
-                                            #                               sample_weight = weight_list[label_index_dict['family']]),
+        result['from_softmax']['family'] = {'prec': metrics.precision_score(labels[:,0], preds['from_softmax'][0], average='macro', 
+                                                                            sample_weight = weight_list[label_index_dict['family']]),
+                                            'recall': metrics.recall_score(labels[:,0], preds['from_softmax'][0], average='macro',
+                                                                           sample_weight = weight_list[label_index_dict['family']]),
                                             'acc': metrics.accuracy_score(labels[:,0], preds['from_softmax'][0],
-                                                                          sample_weight = weight_list[label_index_dict['family']])}
-                                            #'F1': metrics.f1_score(labels[:,0], preds['from_softmax'][0], average="micro",
-                                            #                       sample_weight = weight_list[label_index_dict['family']])}
+                                                                          sample_weight = weight_list[label_index_dict['family']]),
+                                            'F1': metrics.f1_score(labels[:,0], preds['from_softmax'][0], average="micro",
+                                                                   sample_weight = weight_list[label_index_dict['family']])}
         result['from_family']['family'] = result['from_softmax']['family']
         for pred_kind in ['from_softmax','from_family']:
             for level in ['super-family','fold','class']:
-                result[pred_kind][level] = {#'prec': metrics.precision_score(labels[:,label_index_dict[level]], 
-                                            #                                preds[pred_kind][label_index_dict[level]], average='macro',
-                                            #                                sample_weight = weight_list[label_index_dict[level]]),
-                                            #'recall': metrics.recall_score(labels[:,label_index_dict[level]], 
-                                            #                               preds[pred_kind][label_index_dict[level]], average='macro',
-                                            #                               sample_weight = weight_list[label_index_dict[level]]),
+                result[pred_kind][level] = {'prec': metrics.precision_score(labels[:,label_index_dict[level]], 
+                                                                            preds[pred_kind][label_index_dict[level]], average='macro',
+                                                                            sample_weight = weight_list[label_index_dict[level]]),
+                                            'recall': metrics.recall_score(labels[:,label_index_dict[level]], 
+                                                                           preds[pred_kind][label_index_dict[level]], average='macro',
+                                                                           sample_weight = weight_list[label_index_dict[level]]),
                                             'acc': metrics.accuracy_score(labels[:,label_index_dict[level]],
                                                                           preds[pred_kind][label_index_dict[level]],
-                                                                          sample_weight = weight_list[label_index_dict[level]])}
-                                            #'F1': metrics.f1_score(labels[:,label_index_dict[level]], 
-                                            #                       preds[pred_kind][label_index_dict[level]], average='macro',
-                                            #                       sample_weight = weight_list[label_index_dict[level]])} 
+                                                                          sample_weight = weight_list[label_index_dict[level]]),
+                                            'F1': metrics.f1_score(labels[:,label_index_dict[level]], 
+                                                                   preds[pred_kind][label_index_dict[level]], average='macro',
+                                                                   sample_weight = weight_list[label_index_dict[level]])} 
     return result
 
 def accu_print(result, label, kind, epoch, best_result):
@@ -408,7 +413,8 @@ class DataSampler(torch.utils.data.Dataset):
 def perplexity(output, target):
     return torch.exp(F.cross_entropy(output, target, reduction = 'none'))
 
-def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3):
+def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE = 'top-k', k = 3,
+                   heterogeous=True, USE_CUDA = True):
 
     start_time = time.time()
 
@@ -421,12 +427,19 @@ def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE =
 
     for batch_idx, data in enumerate(dataset):
         ### load the batch data ###
-        seq_true = Variable(data['seq'].float(), requires_grad=False)#.cuda()
-        seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)#.cuda()
-        adj = Variable(data['adj'].float(), requires_grad=False)#.cuda()
-
-        h0 = Variable(data['feats'].float())#.cuda()
+        seq_true = Variable(data['seq'].float(), requires_grad=False)
+        seq_mask = Variable(data['seq_mask'].float(), requires_grad=False)
+        adj = Variable(data['adj'].float(), requires_grad=False)
+        if not heterogeous:
+            adj = torch.sum(adj, axis=0).unsqueeze(0)
+        h0 = Variable(data['feats'].float())
         batch_num_nodes = data['num_nodes'].int().numpy()
+
+        if USE_CUDA:
+            seq = seq.cuda()
+            seq_mask = seq_mask.cuda()
+            adj = adj.cuda()
+            h0 = h0.cuda()
 
         target = []
         seq_nature = []
@@ -435,12 +448,12 @@ def Gen_evaluation(model, dataset, temperature = 1.0, seq_len = 35, MAX_SAMPLE =
             seq_nature += seq_recover(seq_tr[:batch_num_nodes[i]])
         target = torch.Tensor(target).long()
 
-        #if balance:
-        #    batch_size = batch_num_nodes.shape[0]
-        #    ele_weight = torch.cat([data['weights'][i][:batch_num_nodes[i]] for i in range(batch_size)]).float()#.cuda()
-        #    ele_weight = ele_weight / ele_weight.shape[0]
-        #else:
-        #    ele_weight = None
+        if balance:
+            batch_size = batch_num_nodes.shape[0]
+            ele_weight = torch.cat([data['weights'][i][:batch_num_nodes[i]] for i in range(batch_size)]).float()#.cuda()
+            ele_weight = ele_weight / ele_weight.shape[0]
+        else:
+            ele_weight = None
 
         ### forward ###
 
