@@ -1,7 +1,7 @@
 name: DataBuffet
 channels:
-- pytorch
 - dglteam
+- pytorch
 - conda-forge
 - defaults
 dependencies:
