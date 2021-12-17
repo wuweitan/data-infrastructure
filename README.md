@@ -1,45 +1,36 @@
-# data-buffet
-This repository is to speed up data processing process and provide packed data for quick run
+# Graph Embedding Task
 
-We start with some good example repos and learn the best from them
-* [sidechainnet](https://github.com/jonathanking/sidechainnet)
-* [atom3d](https://github.com/drorlab/atom3d)
-* [deepchem](https://github.com/deepchem/deepchem)
-* [TDC](https://github.com/mims-harvard/TDC)
+## Task Description:
+Graphs are widely used as descriptions for samples in Non-Euclidean spaces, such as social networks and molecule structure. But for deep learning models we need mathematical formats in the Euclidean spaces as the sample representations, so usually we will apply models to embed the graphs into vectors or matrices, and the graphs neural networks (GNN) are often applied with good performance on this purpose. The goal of the this task is to check the power of the graph neural networks on graph embedding, including node-wise embedding and graph-wise embedding. We will provide the protein samples describe as heterogeneous graphs while the nodes are secondary structure elements (can be regarded as the units of the proteins) and the edges are their sequential or spatial relationships. The samples in our dataset are clustered in an hierarchical structure described in SCOPe, so each sample is assigned to one class (which would be the label) in each hierarchy. In this task we considered two levels in SCOPe, fold and family, so we will provide 1080 and 4303 classes respectively for the discriminative task. We also provide a protein sequence which can be utilized in the generative challenges.
 
-# Protein Structure Data (this branch)
-## Discription 
-This branch would provide a pipeline to deal with the protein structure databases, including general protein structure databases (e.g. PDB, PDB70), hierarchical database (e.g. SCOPe and CATH) and protein complex database (e.g. SAbDab, AbDb, IMGT and CoV3D). The goal of this branch is to help to learn the structure embedding methods, sequence-struture relationship (sequence distribution modelling or structure prediction) and structure-structure relationship (protein docking based on protein complexes). With the development and the outstanding performance of Alphafold2, we may provide a enlarged database with predicted structure (on UniRef90) in the future once it is available from DeepMind (maybe several months later).
+## Challenge 1: Discriminative Task on Protein Folds 
 
-## Correlation with other branches
-* For sequence-structure relationship (with Yuanfei): though the sequeces are provided once the structures (pdb files) are available, more homologous sequences would be provided from the sequence databases and they may share similar structures. 
-* For protein complexes (with Yuning and Rujie): while my projects focus on modeling the conditional sequences distribution, the protein-protein interation is also important to determine the condition, so there is an overlapping part with Rujie and Yuning's work. While they would consider a more expansive space, we may share our pipelines to each other.
-* Mutation effect (with Wuwei): the modeled sequence distribution can be applied to predict the mutation effect, which can be compared with Wuwei's work on genes.
+### Challenge Description
+In this challenge a feature matrix and an adjacency tensor would be provided for each sample and the goal is to predict the label (on fold or family level). The user need to construct their own GNN (either on homogeneous graph or heterogeneous graph, depending on the setting)to get the node-wise or graph-wise embeddings. For graph-wise embedding if will be directly sent to an MLP for classification; for the node-wise embedding the user can select one of the pooling layers we provided for graph-wise embeddings.
 
-## Blueprint
-A hierarchical tree will be provided (like SCOPe, to show the clusters of structures) with the statistics of each dataset. Users may refer to the statistics to select their datasets. They may also search for a benchmark dataset with the name. Once they have determined a list they can directly downloaded the processed data and then pursue the steps like data splitting, data loading, model training (require their own model) and evaluations (some classical metrics will be provided). For some unseen data the may also apply our process pipeline to deal with as long as a required format (i.e. pdb) is provided.
+### Dataset:
 
-### Data Process
-#### For samples
-* Information Read: extract aa sequences, get ss and sa, calculate the rmsd, irmsd (for complexes) and fnat (for complexes), etc.
-* Structure represenation: gcWGAN representations (fold-level), cVAE grammar (fold-level), SSE graphs (fold-level), residue-residue graphs (structure level) and atomic graphs (structure level).
-#### For datasets
-* Query the datasets with the name of the benchmark DBs or a threshold (on sequence or structure similarity).
-* Data split process
+#### Data Format: 
+For each sample 1 feature matrix (Numpy array, max_node_amount(60) x feat_dim(11)) and 1 adjacency tensor (Numpy array, channel_num(5) x max_node_amount(60) x max_node_amount(60); for homogeneous graph channel_num = 1). The datasets are stored as lists of Numpy arrays and the label vectors are stored as Numpy arrays. During the training process the feature matrix and the adjacency matrix will be transformed into pytorch Tensors (float).
 
-### DataLoader
-* Loading the processed datasets and generate batches.
+### Evaluation Criteria: 
+Accuracy, F1-score.
 
-### Evaluation
-#### Sequence
-* Sequence identity 
-* Sequence coverage 
-* Perplexity
+### Requirement
+The GNN can only and must take the feature matrix and the adjacency tensor as the input.
 
-#### Structure
-* TMscore 
-* RMSD 
+## Challenge 2: Generative Task on Protein Folds
 
-#### Compexes
-* iRMSD
-* fnat
+### Challenge Description
+In this challenge the user need to provide 
+
+### Dataset:
+
+#### Data Format:
+For each sample 1 feature matrix (Numpy array), 1 adjacency matrix (Numpy array) and . The datasets are stored as lists of Numpy arrays and the label vectors are stored as Numpy arrays. During the training process the feature matrix and the adjacency matrix will be transformed into pytorch Tensors (float).
+
+### Evaluation Criteria: 
+Perplexity, seqence identity.
+
+### Requirement:
+The GNN can only and must take the feature matrix, the adjacency tensor and the sequence tensor as the input.
