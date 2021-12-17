@@ -23,7 +23,7 @@ The GNN can only and must take the feature matrix and the adjacency tensor as th
 ## Challenge 2: Generative Task on Protein Folds
 
 ### Challenge Description
-In this challenge the user need to provide 
+In this challenge the user need to provide a node-wise embedding GNN. It will be utilized to embed the protein structure to train a conditional sequence generative model, while the condition is the node-wise structure (graph) embedding.
 
 ### Dataset:
 For each sample 1 feature matrix (Numpy array), 1 adjacency matrix (Numpy array) and . The datasets are stored as lists of Numpy arrays and the label vectors are stored as Numpy arrays. During the training process the feature matrix and the adjacency matrix will be transformed into pytorch Tensors (float).
