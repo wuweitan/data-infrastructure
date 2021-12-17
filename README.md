@@ -43,3 +43,6 @@ A hierarchical tree will be provided (like SCOPe, to show the clusters of struct
 #### Compexes
 * iRMSD
 * fnat
+
+# Challenges
+For the prepared tasks go the folder *Challenges*.
