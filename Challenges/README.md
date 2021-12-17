@@ -4,7 +4,7 @@
 Graphs are widely used as descriptions for samples in Non-Euclidean spaces, such as social networks and molecule structure. But for deep learning models we need mathematical formats in the Euclidean spaces as the sample representations, so usually we will apply models to embed the graphs into vectors or matrices, and the graphs neural networks (GNN) are often applied with good performance on this purpose. The goal of the this task is to check the power of the graph neural networks on graph embedding, including node-wise embedding and graph-wise embedding. We will provide the protein samples describe as heterogeneous graphs while the nodes are secondary structure elements (can be regarded as the units of the proteins) and the edges are their sequential or spatial relationships. The samples in our dataset are clustered in an hierarchical structure described in SCOPe, so each sample is assigned to one class (which would be the label) in each hierarchy. In this task we considered the fold level hierarchy in SCOPe, so we will provide 1080 classes respectively for the discriminative task. We also provide a protein sequence which can be utilized in the generative challenges.
 
 ## Environment
-Go to the folder ![Enivironment](https://github.tamu.edu/shen-group/data-buffet/tree/shaowen/Environment) and install the environment with the *.yml* file.
+Go to the folder [Enivironment](https://github.tamu.edu/shen-group/data-buffet/tree/shaowen/Environment) and install the environment with the *.yml* file.
 
 ## Challenge 1: Discriminative Task on Protein Folds 
 
@@ -35,5 +35,5 @@ Perplexity, seqence identity.
 The GNN can only and must take the feature matrix, the adjacency tensor and the sequence tensor as the input.
 
 ## Tutorial
-Follow the instructions in the *Illustration.ipynb* for more details and ruunning the pipeline.
+Follow the instructions in the [Illustration.ipynb](https://github.tamu.edu/shen-group/data-buffet/blob/shaowen/Challenges/Illustration.ipynb) for more details and ruunning the pipeline.
 
