@@ -7,6 +7,7 @@ We start with some good example repos and learn the best from them
 * [deepchem](https://github.com/deepchem/deepchem)
 * [TDC](https://github.com/mims-harvard/TDC)
 * [PyUUL](https://bitbucket.org/grogdrinker/pyuul/src/master/)
+* [TorchDrug](https://torchdrug.ai/)
 
 ## resources for data
 * https://zenodo.org/
