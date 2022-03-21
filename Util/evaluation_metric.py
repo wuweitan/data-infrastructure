@@ -15,6 +15,7 @@ import networkx as nx # for graph similarity
 
 import pdb_helper
 
+########################### sequence-wise ################################
 
 def sequence_indentity(seq_1, seq_2, version = 'BLAST'):
     '''Calculate the identity between two sequences
@@ -59,6 +60,16 @@ def sequence_indentity(seq_1, seq_2, version = 'BLAST'):
         print('Error! No sequence identity version named %s!'%version)
     return identity
 
+def msi_cal(seq_output, seq_input):
+    id_list = []
+    for sout in seq_output:
+        max_id=0.
+        for sin in seq_input:
+            idd = Identity(sin, sout)
+            max_id = max(max_id, idd)
+        id_list.append(max_id)
+    return id_list
+
 def calculate_biophysical_prop(myfile):
     """
     calculate the biological properties including stability, aromativity, GRAVY, and AAF
@@ -90,6 +101,8 @@ def calculate_biophysical_prop(myfile):
     gravy_mean = np.mean(gravy)
     return ssf,aromaticity,gravy,aaf
 
+########################### structure-wise ################################
+
 def TM_score(pdb_1, pdb_2):
     '''Calculate the TM-scores between two protein structures
 
@@ -115,89 +128,6 @@ def TM_score(pdb_1, pdb_2):
     else:
         return None
     return (float(tms_1) + float(tms_2))/2
-
-class Sequence():
-    """
-    Sequence-based evaluation
-    """
-    def __init__(self, model, **kwargs):
-        self.model = model
-        pass
-
-    def seq_gen(self, **kwargs)
-        pass
-
-class Structure():
-    """
-    Structure-based evaluation
-    """
-    def __init__(self, model, **kwargs):
-        self.model = model
-        pass
-
-    def seq_gen(self, **kwargs)
-        pass
-
-
-class Accuracy():
-    """
-    Evaluation metrics for general predictions
-    """
-    def __init__(self, model, **kwargs):
-        self.model = model
-
-
-
-def pdb_info_load(pdb_file, chains = None):
-    '''
-    Extract the residue information inside a pdb file. Ignore the missing residues.
-    '''
-    AA_dict = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLN':'Q','GLU':'E','GLY':'G','HIS':'H','ILE':'I', 'HSE':'H',
-               'LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W','TYR':'Y','VAL':'V'}
-
-    protein_dict = {}
-    index_dict = {} # The indexes of the residues.
-
-    with open(pdb_file,'r') as p_file:
-        lines = p_file.readlines()
-        for line in lines:
-            if line[0:4] == 'ATOM':
-                ### residue-wise info ###
-                if line[16] == ' ' or line[16] == 'A' or line[16] == '1':
-                    atom = remove(line[12:16],' ')
-                else:
-                    atom = remove(line[12:16],' ') + '_' + line[16]
-                resi = line[17:20]
-                chain = line[21]
-
-                if chains is None or chain in chains:
-                    index_all = remove(line[22:27],' ')
-                    ### atom-wise info ###
-                    x = float(remove(line[30:38],' '))
-                    y = float(remove(line[38:46],' '))
-                    z = float(remove(line[46:54],' '))
-        ############ Judge whether a new chain begins. ########################
-                    if not chain in protein_dict.keys():
-                        protein_dict[chain] = {'coor':{}, 'seq':''}
-                        index_dict[chain] = []
-        ############ Save the sequence infomation. ######################## 
-                    if not index_all in protein_dict[chain]['coor'].keys():
-                        protein_dict[chain]['coor'][index_all] = {'resi':resi}
-                        index_dict[chain].append(index_all)
-                        protein_dict[chain]['seq'] += AA_dict[resi]
-                    elif resi != protein_dict[chain]['coor'][index_all]['resi']:
-                        print('PDB read error! The residue kind of resi %s is not consistent for %s!'%(index_all,pdb_file))
-                        return 0
-        ############ atom coordinates. ########################
-                    if not atom in protein_dict[chain]['coor'][index_all].keys():
-                        protein_dict[chain]['coor'][index_all][atom] = np.array([x,y,z])
-    print(pdb_file)
-    print('%d chains processed.'%len(index_dict.keys()))
-    for c in index_dict.keys():
-        print('Chain %s: %d residues'%(c, len(index_dict[c])))
-    return protein_dict, index_dict
-
-    
 
 def fnat(target_path, native_path, recepter_chains, ligand_chains, cutoff = 5.0):
     """

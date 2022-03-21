@@ -5,34 +5,74 @@
 
 import sys
 import numpy as np
+import difflib
 from Bio.PDB.DSSP import dssp_dict_from_pdb_file
 
+import pickle
+import os
 import re
 import string
 import random
 
 import networkx as nx # for graph similarity
-
-import Sequence_helper
-
 import requests
 import json
 
+#***************************************** auxiliary funtions **********************************************
+
 LETTERS = string.ascii_uppercase
 ss_map3_dict = {'H':'H','G':'H','I':'H','E':'E','B':'E','S':'C','T':'C','-':'C','C':'C'}
-
-#***********************************************************************************************************
 
 def remove(string,char):
     '''
     Remove the character in a string.
     '''
-    #string_char = [i for i in string.split(char) if i != '']
-    #return string_char[0]
     string_char = string.split(char)
     return ''.join(string_char)
 
-#***********************************************************************************************************
+def dict_save(dictionary,path):
+    with open(path,'wb') as handle:
+        pickle.dump(dictionary, handle)
+    return 0
+
+def dict_load(path):
+    with open(path,'rb') as handle:
+        result = pickle.load(handle)
+    return result
+
+def make_path(path):
+    """
+    Create the directories in then path if they do not exist.
+    Will take the all the substrings in the path split by '/' as a directory.
+    """
+    if path.startswith('/'):
+        begin = '/'
+    else:
+        begin = ''
+    substring = path.strip('/').split('/')
+    current_path = begin
+    for dire in substring:
+        current_path += dire + '/'
+        if not os.path.exists(current_path):
+            os.mkdir(current_path)
+    return 0
+
+def seq_similarity(seq_1,seq_2):
+    '''
+    Fastly compare two sequences.
+    '''
+    return difflib.SequenceMatcher(None,seq_1,seq_2).quick_ratio()
+
+def OneHot_encoding(string,char_keys):
+    """
+    Return one-hot encoding format.
+    """
+    result = np.zeros((len(string),len(char_keys)))
+    for i, char in enumerate(string):
+        result[i,char_keys.index(char)] = 1
+    return result
+
+#**************************** pdb reader and processor *****************************************************
 
 def read_pdb(pdb_file):
     '''
@@ -79,7 +119,229 @@ def read_pdb(pdb_file):
                     protein_dict[chain][index_all][atom] = [x,y,z,occupancy,occupancy,temp_factor]  
     return protein_dict, index_dict
 
-#***********************************************************************************************************
+def pdb_truncate(pdb_file,chain,start,end,relative_start=False,fix_length=False):
+    '''
+    Select a certain range of the pdb file.    
+    '''
+    output_line = ''
+    with open(pdb_file,'r') as pdb_f:
+        lines = pdb_f.readlines()
+        if len(lines) < 10:
+            print(pdb_file)
+        index_start = start
+        index_end = end
+        idx_start_flag = True
+        resi_num = 0
+        idx_pre = None
+        length = end - start + 1
+
+        for line in lines:
+            if line[0:4] == 'ATOM':
+                index = int(line[22:26])
+                if chain == line[21]:
+                    if relative_start and idx_start_flag:
+                        index_start = index + start - 1
+                        index_end = index_start + (end - start)
+                        idx_start_flag = False
+
+                    if fix_length and (resi_num >= length):
+                        break
+                    elif (not fix_length) and (index > index_end):
+                        break
+                    elif index >= index_start:
+                        output_line += line
+                        if index != idx_pre:
+                            resi_num += 1
+                        idx_pre = index
+    return output_line
+
+def unify_chain(temp_dict, model_dict, input_file, output_file):
+    if len(temp_dict.keys()) != len(temp_dict.keys()):
+        print('Chains amounts do not match! Cannot be unified!')
+        return 1
+    select_chain = []
+    map_dict = {}
+    for chain in model_dict.keys():
+        if chain in temp_dict.keys():
+            map_dict[chain] = chain
+        else:
+            best_score = 0
+            for chain_2 in temp_dict.keys():
+               if not (chain_2 in model_dict.keys() or chain_2 in select_chain):
+                   score = seq_similarity(model_dict[chain]['seq'],temp_dict[chain_2]['seq'])
+                   if score > best_score:
+                       best_score = score
+                       best_chain = chain_2
+            map_dict[chain] = best_chain
+            select_chain.append(best_chain)
+    with open(input_file,'r') as in_f, open(output_file,'w') as out_f:
+        lines = in_f.readlines()
+        for line in lines:
+            if len(line) > 4 and line[0:4] == 'ATOM':
+                chain = line[21]
+                line_new = line[:21] + map_dict[chain] + line[22:]
+                out_f.write(line_new)
+            elif len(line) > 21 and line[0:3] == 'TER' and line[21] == chain:
+                line_new = line[:21] + map_dict[chain] + line[22:]
+                out_f.write(line_new)
+            else:
+                out_f.write(line)
+    return 0
+
+#************************************** 1-D features *******************************************************
+"""
+extract 1-D features for protreins, including amino acid (AA) sequence, secandary strutcure (SS) and solvent accessability (SA)
+"""
+
+### read AA sequences ###
+
+def seq_extraction(pdb,absolute_position=True):
+    '''
+    Extract the sequence from the pdb files.
+    Output a list of chain informations. (The same chain index may refer to different chains in different models.)
+    '''
+    AA_dict = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLN':'Q','GLU':'E','GLY':'G','HIS':'H','ILE':'I', 'HSE':'H',
+               'LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W','TYR':'Y','VAL':'V'}
+    with open(pdb,'r') as f:
+        lines = f.readlines()
+    seqs = []
+    seq = ''
+    flag = True
+    model = None
+    for line in lines:
+        if line[0:5] == 'MODEL':
+            model = line.strip('\n').split(' ')[-1]
+        elif line[0:4] == 'ATOM':
+            if absolute_position:
+                try:
+                    if line[21] == ' ':
+                        line = line[1:]
+
+                    if line[17:20] in AA_dict.keys():
+                        AA = AA_dict[line[17:20]]
+                    else:
+                        AA = 'X'
+                    chain = line[21]
+
+                    index = int(remove(line[22:26],' '))
+                    index_all = str(index) + line[26]
+
+                    if flag:
+                        seq += AA
+                        start = index_all
+                        flag = False
+                        missing = []
+                        if index_all[-1] == ' ':
+                            inser_num = 0
+                        else:
+                            inser_num = 1
+                    elif chain != chain_pre:
+                        seqs.append({'model':model, 'chain': chain_pre, 'seq': seq, 'length': len(seq), 'resi_range':[start, index_all_pre], 'miss_resi':missing, 'insertion_num':inser_num})
+                        seq = AA
+                        start = index_all
+                        missing = []
+                        if index_all[-1] == ' ':
+                            inser_num = 0
+                        else:
+                            inser_num = 1
+                    elif index_all != index_all_pre:
+                        gap = 1
+                        while(index > int(index_all_pre[:-1]) + gap):
+                            seq += 'x'
+                            missing.append(int(index_all_pre[:-1]) + gap)
+                            gap += 1
+                        seq += AA
+                        if index_all[-1] != ' ':
+                            inser_num += 1
+
+                except:
+                    print('PDB read error!')
+                    print('################################################')
+                    print(pdb)
+                    print(line)
+                    print('################################################')
+
+            else:
+                line = [char for char in line.strip('\n').split(' ') if char != '']
+                if line[3] in AA_dict.keys():
+                    AA = AA_dict[line[3]]
+                else:
+                    AA = 'X'
+                chain = line[4]
+
+                index_all = line[5]
+                if index_all[-1] in '1234567890':
+                    index = int(index_all)
+                    index_all += ' '
+                else:
+                    index = int(index_all[:-1])
+
+                if flag:
+                    seq += AA
+                    start = index_all
+                    flag = False
+                    missing = []
+                    if index_all[-1] == ' ':
+                        inser_num = 0
+                    else:
+                        inser_num = 1
+                elif chain != chain_pre:
+                    seqs.append({'model':model, 'chain': chain_pre, 'seq': seq, 'length': len(seq), 'resi_range':[start, index_all_pre], 'miss_resi':missing, 'insertion_num':inser_num})
+                    seq = AA
+                    start = index_all
+                    missing = []
+                    if index_all[-1] == ' ':
+                        inser_num = 0
+                    else:
+                        inser_num = 1
+                elif index_all != index_all_pre:
+                    gap = 1
+                    while(index > int(index_all_pre[:-1]) + gap):
+                        seq += 'x'
+                        missing.append(int(index_all_pre[:-1]) + gap)
+                        gap += 1
+                    seq += AA
+                    if index_all[-1] != ' ':
+                        inser_num += 1
+
+            chain_pre = chain
+            index_all_pre =  index_all
+
+        elif not flag and line[0:3] == 'TER':
+            seqs.append({'model':model, 'chain': chain_pre, 'seq': seq, 'length': len(seq), 'resi_range':[start, index_all_pre], 'miss_resi':missing, 'insertion_num':inser_num})
+            seq = ''
+            flag = True
+
+    if seq != '':
+        seqs.append({'model':model, 'chain': chain_pre, 'seq': seq, 'length': len(seq), 'resi_range':[start, index_all_pre], 'miss_resi':missing, 'insertion_num':inser_num})
+
+    return seqs
+
+
+def seq_dict(pdb,absolute_position=True):
+    result = {}
+    seqs = seq_extraction(pdb,absolute_position)
+    ordered_keys = []
+    for s in seqs:
+        model = s['model']
+        chain = s['chain']
+        ordered_keys.append(chain)
+        if not model in result.keys():
+            result[model] = {}
+        if not chain in result[model].keys():
+            result[model][chain] = {'seq': s['seq'], 'length': s['length'], 'resi_range':s['resi_range'],
+                                    'miss_resi': s['miss_resi'], 'insertion_num':s['insertion_num']}
+            else:
+                index = 2
+                chain_new = chain + str(index)
+                while (chain_new in result.keys()):
+                    index += 1
+                    chain_new = chain + str(index)
+                result[model][chain_new] = {'seq': s['seq'], 'length': s['length'], 'resi_range':s['resi_range'],
+                                            'miss_resi': s['miss_resi'], 'insertion_num':s['insertion_num']}
+    return result, ordered_keys
+
+### read SS sequences ###
 
 def read_pdb_ss(header_file, chain_ref):
     '''
@@ -214,7 +476,7 @@ def rcsb_api_ss(pdb, chain, PDB_chain = True):
             ss_index_dict[key].append((pdb_index[seg[0] - 1], pdb_index[seg[1] - 1]))
     return ss_index_dict, pdb_index
 
-#***********************************************************************************************************
+#***************************************** 2D features: graphs *********************************************
 
 class PDB_information(object):
     '''
@@ -351,8 +613,6 @@ class PDB_information(object):
                 self.Seq_dict[chain] = Complete_Seq
                 self.SS_dict[chain] = Complete_SS
                 self.SS_dict_3[chain] = Complete_SS_3                 
-
-#***********************************************************************************************************
 
 class Protein_Graph(object):
     '''
@@ -870,17 +1130,6 @@ class Protein_Graph(object):
 
 #********************************* Accessory Functions for Graphs ***************************************
 
-### Common functions ###
-
-def OneHot_encoding(string,char_keys):
-    """
-    Return one-hot encoding format.
-    """
-    result = np.zeros((len(string),len(char_keys)))
-    for i, char in enumerate(string):
-        result[i,char_keys.index(char)] = 1
-    return result
-
 def seqtial_mat(node_num, direct = False):
     result = np.zeros((node_num, node_num))
     result[1:,:-1] = np.eye(node_num - 1)
@@ -1026,7 +1275,7 @@ def PROTEIN_ele_center(resi_info):
     if flag:
         return TOPS_ele_center(resi_info)
 
-#********************************* for Graph Process ***************************************
+### for other graph format ###
 
 def to_nxGragh(A,X=None,Y=None):
     """
