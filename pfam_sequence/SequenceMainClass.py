@@ -124,8 +124,23 @@ def raw_msa2dict(data_path, input_format, fileNm, famAcc, clanAcc):
 
   return seq_dict_list
 
-def create_json_dataSet(argv):
-  '''
+def create_json_dataSet(argv,
+                        working_path: str = None,
+                        data_path: str = None,
+                        statistic_path: str = None,
+                        output_path: str = None,
+                        family_clan_mapping: str = None,
+                        flNm_pfam_file: str = None,
+                        random_seed: int = None,
+                        split: str = None,
+                        num_split: int = None,
+                        max_seq_length: int = None,
+                        mask_prob: int = None,
+                        max_mask_per_seq: int = None,
+                        sig_dom: str = None,
+                        in_format: str = None,
+                        mask_flag: str = None):
+
   Output:
   *train, validation, test set: list, each element a dist for a seq
   '''
