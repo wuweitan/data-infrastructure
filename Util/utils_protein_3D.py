@@ -233,6 +233,34 @@ class PDB_information(object): # by SZ
                 self.SS_dict[chain] = Complete_SS
                 self.SS_dict_3[chain] = Complete_SS_3
 
+#********************* Acquire AA sequences from the PDB header ****************************
+
+def read_pdb_seq(header_file): # by SZ
+    """Extract the amino acid sequences from a PDB header.
+
+    Args:
+        header_file (str): The path of the PDB file (with the header) or the PDB Header file.
+
+    Returns: 
+        dict: A dictionary tell the protein amino acid sequences of the each chain.
+    """
+    AA_dict = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLN':'Q','GLU':'E','GLY':'G','HIS':'H','ILE':'I',
+               'LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W','TYR':'Y','VAL':'V',
+               'ASX':'B','GLX':'Z'}
+    with open(header_file,'r') as rf:
+        lines = rf.readlines()
+    seq_dict = {}
+    for line in lines:
+        if line.startswith('SEQRES'):
+            line = [char for char in line.spplit(' ') if char != '']
+            chain = line[2]
+            if not chain in seq_dict:
+                seq_dict[chain] = ''
+            aa_list = line[4:]
+            for aa in aa_list:
+                seq_dict[chain] += AA_dict[aa]
+    return seq_dict
+
 #**************************** Acquire Secondary Structures *********************************
 
 def read_pdb_ss(header_file, chain_ref): # by SZ
@@ -384,8 +412,16 @@ def rcsb_api_ss(pdb, chain, PDB_chain = True): # by SZ
     return ss_index_dict
 
 #################################################################################
-# 2-D Features: Element-wise Graphs (by SZ)
+# 2-D Features: Protein Graphs
 #################################################################################
+
+###################### Residue-wise Protein Graphs ##############################
+
+"""
+Yuning and Rujie may add their corresponding code here.
+"""
+
+###################### Element-wise Protein Graphs ##############################
 
 #******************** Auxiliary Funtions for Graphs *****************************
 
