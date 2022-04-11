@@ -55,13 +55,14 @@ dict_AA_to_atom = {'ALA': ['N', 'CA', 'C', 'O', 'CB'], 'ASP': ['N', 'CA', 'C', '
 def get_pair_dist(a, b):  #########
     """calculate pair distances between two sets of points
     
-    Parameters
-    ----------
-    a,b : pytorch tensors of shape [batch,nres,3]
-          store Cartesian coordinates of two sets of atoms
-    Returns
-    -------
-    dist : pytorch tensor of shape [batch,nres,nres]
+    Args:
+        a (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+            store Cartesian coordinates of a set of atoms
+        b (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+            store Cartesian coordinates of a set of atoms
+
+    Returns:
+        dist: pytorch tensor of shape [batch,nres,nres]
            stores paitwise distances between atoms in a and b
     """
 
@@ -70,20 +71,23 @@ def get_pair_dist(a, b):  #########
 
 # ============================================================
 def get_ang(a, b, c, eps=1e-8):
-    """calculate planar angles for all consecutive triples (a[i],b[i],c[i])
-    from Cartesian coordinates of three sets of atoms a,b,c 
+    """calculate planar angles for all consecutive triples (a[i],b[i],c[i]) from Cartesian coordinates of three sets of atoms a,b,c 
+    
+    Note:
+        If the angle does not exist, then we expect the calculation will give a mean value (pi/2 here). 
+        (This is the case when we add the epsilon value to gain numerical stability)
 
-    Parameters
-    ----------
-    a,b,c : pytorch tensors of shape [batch,nres,3]
-            store Cartesian coordinates of three sets of atoms
-    Returns
-    -------
-    ang : pytorch tensor of shape [batch,nres]
-          stores resulting planar angles
-    NOTE:
-    If the angle does not exist, then we expect the calculation will give a mean value (pi/2 here). 
-    (This is the case when we add the epsilon value to gain numerical stability)
+    Args:
+        a (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+            store Cartesian coordinates of a set of atoms
+        b (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+            store Cartesian coordinates of a set of atoms
+        a (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+            store Cartesian coordinates of a set of atoms
+	    
+    Returns:
+        ang (torch.Tensor): pytorch tensor of shape [batch,nres]
+            stores resulting planar angles
     """
     v = a - b
     w = c - b
@@ -95,20 +99,24 @@ def get_ang(a, b, c, eps=1e-8):
 
 # ============================================================
 def get_dih(a, b, c, d, eps=1e-8):
-    """calculate dihedral angles for all consecutive quadruples (a[i],b[i],c[i],d[i])
-    given Cartesian coordinates of four sets of atoms a,b,c,d
+    """calculate dihedral angles for all consecutive quadruples (a[i],b[i],c[i],d[i]) given Cartesian coordinates of four sets of atoms a,b,c,d
+    
+    Note:
+        If the angle does not exist, then we expect the calculation will give a mean value (0 here). 
+        (This is the case when we add the epsilon value to gain numerical stability)
 
-    Parameters
-    ----------
-    a,b,c,d : pytorch tensors of shape [batch,nres,3]
-              store Cartesian coordinates of four sets of atoms
-    Returns
-    -------
-    dih : pytorch tensor of shape [batch,nres]
-          stores resulting dihedrals
-    NOTE:
-    If the angle does not exist, then we expect the calculation will give a mean value (0 here). 
-    (This is the case when we add the epsilon value to gain numerical stability)
+    Args:
+        a (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+              store Cartesian coordinates of a set of atoms
+        b (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+              store Cartesian coordinates of a set of atoms
+	c (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+              store Cartesian coordinates of a set of atoms
+	d (torch.Tensor): pytorch tensor of shape [batch,nres,3]
+              store Cartesian coordinates of a set of atoms
+    Returns:
+        dih (torch.Tensor): pytorch tensor of shape [batch,nres]
+            stores resulting dihedrals
     """
     b0 = a - b
     b1 = c - b
@@ -145,26 +153,18 @@ def get_dih(a, b, c, d, eps=1e-8):
 
 #### MODIFYING ####
 def xyz_to_c6d_modified(xyz, mask_seq):
-    ######
-    """
-    xyz and mask_seq should be torch tensor
-    """
-    ######
-    """convert cartesian coordinates into 2d distance 
-    and orientation maps
+    """convert cartesian coordinates into 2d distance and orientation maps
     
-    Parameters
-    ----------
-    xyz : pytorch tensor of shape [batch,nres,3,3]
-          stores Cartesian coordinates of backbone N,Ca,C atoms
-    mask_seq : pytorch tensor of shape [batch,nres]
+    Args:
+        xyz (torch.Tensor): pytorch tensor of shape [batch,nres,3,3]
+            stores Cartesian coordinates of backbone N,Ca,C atoms
+        mask_seq (torch.Tensor): pytorch tensor of shape [batch,nres]
 
-    Returns
-    -------
-    c6d : pytorch tensor of shape [batch,nres,nres,4]
-          stores stacked dist,omega,theta,phi 2D maps
-    mask_pair : pytorch tensor of shape [batch, nres, nres]
-           stores 2D maps where the distance is below 20 angstroms
+    Returns:
+        c6d (torch.Tensor): pytorch tensor of shape [batch,nres,nres,4]
+            stores stacked dist,omega,theta,phi 2D maps
+        mask_pair (torch.Tensor): pytorch tensor of shape [batch, nres, nres]
+            stores 2D maps where the distance is below 20 angstroms
     """
 
     ### 1. There is nan for any unseen coordinates, the distances assigned to such related pairs are very large.
@@ -259,9 +259,8 @@ def conv_to_aatype(seq_str):
 
 
 def pdb_info_load(pdb_file, chains = None):
-    '''
-    Extract the residue information inside a pdb file. Ignore the missing residues.
-    '''
+    """Extract the residue information inside a pdb file. Ignore the missing residues.
+    """
     AA_dict = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLN':'Q','GLU':'E','GLY':'G','HIS':'H','ILE':'I', 'HSE':'H',
                'LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W','TYR':'Y','VAL':'V'}
 
@@ -331,56 +330,56 @@ def pdb_info_load(pdb_file, chains = None):
     return protein_dict, index_dict
 
 def nat_idx_conv_conc_to_inchain(conc_idx, chains, index_dict):
-    """ Convert some natural residue idx for the concatenated seq to the natural res idx 
-        for some chain and find out the chain id.
-        Input:
-        1. conc_idx (int)
-        2. chains (list of str)
-        3. index_dict (dict: the output of pdb_info_loader)
-        Output:
-        1. c: chain id (str)
-        2. conc_idx - cur_len: natural res idx for the chain c (int)
+    """Convert some natural residue idx for the concatenated seq to the natural res idx for some chain and find out the chain id.
+    
+       Args:
+           conc_idx (int): the natural index for the residue in the concatenated sequence 
+	       with the order of the chains specified in the chains argument
+           chains (list(str)): a list of chain names 
+           index_dict (dict): a dict object as one of the output items of the pdb_info_loader function
+	   
+       Returns:
+           c (str): chain id for the chain where the residue resides on
+           difference (int): natural res idx for the chain c
     """
     cur_len = 0
     for i, c in enumerate(chains):
         if cur_len <= conc_idx and conc_idx < cur_len + len(index_dict[c]):
-            return c, conc_idx - cur_len
+	    difference = conc_idx - cur_len
+            return c, difference
         else:
             cur_len += len(index_dict[c])
-    print("!!!!!!!!!!!!!!")
+    print("Cannot find the residue's position! Please check the input!")
 
 
 def preprocessing(pdb_ids, chains_b_r, chains_b_l, chains_u_r, chains_u_l, path_u_r, path_u_l, 
 	path_b_r, path_b_l):
 	
-	""" Process the docking data (include the unbound and bound structure) to get a dictionary containing
-		a set of features/masks/labels
+	"""Process the docking data (include the unbound and bound structure) to get a dictionary containing a set of features/masks/labels
 
-		Input:
-		1. pdb_ids: a list of pdb id triplets in the format of items in DB5. 
+	Args:
+	    pdb_ids: a list of pdb id triplets in the format of items in DB5. 
 		   (dtype: list, eg. ["1AHW_AB:C" "1FGN_LH" "1TFH_A"])
 
-		2. chains_b_r: a list of chain ids for receptor in the bound state (dtype: list)
-		3. chains_b_l: a list of chain ids for ligand in the bound state (dtype: list)
-		4. chains_u_r: a list of chain ids for receptor in the unbound state (dtype: list)
-		5. chains_u_l: a list of chain ids for ligand in the unbound state (dtype: list)
+	    chains_b_r (list(str)): a list of chain ids for receptor in the bound state 
+	    chains_b_l (list(str)): a list of chain ids for ligand in the bound state 
+	    chains_u_r (list(str)): a list of chain ids for receptor in the unbound state 
+	    chains_u_l (list(str)): a list of chain ids for ligand in the unbound state 
 
-		6. path_u_r: path to the pdb files for receptor in the bound state (dtype: str)
-		7. path_u_l: path to the pdb files for ligand in the bound state (dtype: str)
-		8. path_b_r: path to the pdb files for receptor in the unbound state (dtype: str)
-		9. path_b_l: path to the pdb files for ligand in the unbound state (dtype: str)
+	    path_u_r (str): path to the pdb files for receptor in the bound state 
+	    path_u_l (str): path to the pdb files for ligand in the bound state 
+	    path_b_r (str): path to the pdb files for receptor in the unbound state 
+	    path_b_l (str): path to the pdb files for ligand in the unbound state 
 
-		Output:
-		A pickled python dictionary file named with the "labels/{complex_code}.pkl" with the following keys:
-
-		1. out_dict["complex_code"] (dtype: str)
+	Notes:
+	    A pickled python dictionary file named with the "labels/{complex_code}.pkl" with the following keys:
+	    
+	    1. out_dict["complex_code"] (dtype: str)
 	    2. out_dict["conc_seq"]["rec"], out_dict["conc_seq"]["lig"] (dtype: str)
-	    3. out_dict["conc_bb_coord"]["rec"]["u"], out_dict["conc_bb_coord"]["rec"]["b"], 
-	       out_dict["conc_bb_coord"]["lig"]["u"], out_dict["conc_bb_coord"]["lig"]["b"] (dtype: np.array (n_res, 3, 3))
+	    3. out_dict["conc_bb_coord"]["rec"]["u"], out_dict["conc_bb_coord"]["rec"]["b"], out_dict["conc_bb_coord"]["lig"]["u"], out_dict["conc_bb_coord"]["lig"]["b"] (dtype: np.array (n_res, 3, 3))
 	    4. out_dict["mask"] (dtype: np.array (n_res_r+n_res_l))
 	    5. out_dict["labels"] (dtype: np.array (n_res_r+n_res_l, n_res_r+n_res_l, 4))
 	    6. out_dict["mask_pair"] (dtype: np.array (n_res_r+n_res_l, n_res_r+n_res_l))
-
 	"""
 
     pdb_b = pdb_ids[0][0:4]
