@@ -62,7 +62,7 @@ def get_pair_dist(a, b):  #########
             store Cartesian coordinates of a set of atoms
 
     Returns:
-        dist: pytorch tensor of shape [batch,nres,nres]
+        dist (torch.Tensor): pytorch tensor of shape [batch,nres,nres]
            stores paitwise distances between atoms in a and b
     """
 
