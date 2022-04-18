@@ -235,11 +235,12 @@ class PDB_information(object): # by SZ
 
 #********************* Acquire AA sequences from the PDB header ****************************
 
-def read_pdb_seq(header_file): # by SZ
+def read_pdb_seq(pdb_file): # by SZ
     """Extract the amino acid sequences from a PDB header.
+       If the header cannot be found, the sequences will be read from the coodinates file and the possible missing residue indexes will be returned as well.
 
     Args:
-        header_file (str): The path of the PDB file (with the header) or the PDB Header file.
+        pdb_file (str): The path of the PDB file (with the header) or the PDB Header file.
 
     Returns: 
         dict: A dictionary tell the protein amino acid sequences of the each chain.
@@ -250,8 +251,11 @@ def read_pdb_seq(header_file): # by SZ
     with open(header_file,'r') as rf:
         lines = rf.readlines()
     seq_dict = {}
+    seqres_flag = False
+    ### read the sequences from the header
     for line in lines:
         if line.startswith('SEQRES'):
+            seqres_flag = True
             line = [char for char in line.spplit(' ') if char != '']
             chain = line[2]
             if not chain in seq_dict:
@@ -259,11 +263,39 @@ def read_pdb_seq(header_file): # by SZ
             aa_list = line[4:]
             for aa in aa_list:
                 seq_dict[chain] += AA_dict[aa]
+    ### read the sequences from the coordinates (when the "SEQRES" cannot be found)
+    if not seqres_flag:
+        print('Warning! Cannot find "SEQRES" in the header! Will acquire the sequences from the coodinates, which would ignore the missing residues!')
+        print('Possible missing residues would be represented with "x".') 
+        chain_pre = 'None'
+        for line in lines:
+            if line[0:5] == 'ENDMDL':
+                break
+            elif line[0:4] == 'ATOM':
+                chain = line[21]
+                resi = line[17:20]
+                if resi in AA_dict.keys():
+                    AA = AA_dict[resi]
+                else:
+                    AA = 'X'
+                index_all = line[22:27]
+                if not chain in seq_dict:
+                    seq_dict[chain] = {'seq':AA, 'missing_idx':[]}
+                    index_pre = index_all
+                elif index_all != index_pre:
+                    idx_val = int(index_all[:-1],' '))
+                    idx_pre = int(index_pre[:-1],' '))
+                    diff = idx_val - idx_pre
+                    for d in range(1, diff):
+                        seq_dict[chain]['missing_idx'].append(idx_pre + d)
+                        seq_dict[chain]['seq'] += 'x'
+                    seq_dict[chain]['seq'] += AA
+
     return seq_dict
 
 #**************************** Acquire Secondary Structures *********************************
 
-def read_pdb_ss(header_file, chain_ref): # by SZ
+def read_pdb_ss_header(header_file, chain_ref): # by SZ
     """Extract the secondary structure region for the certain chain from a PDB header.
 
     Args:
@@ -300,7 +332,7 @@ def read_pdb_ss(header_file, chain_ref): # by SZ
     return ss_index_dict
 
 
-def rcsb_api_ss(pdb, chain, PDB_chain = True): # by SZ
+def read_pdb_ss_api(pdb, chain, PDB_chain = True): # by SZ
     """Extract the secondary structure region with the RCSB API.
 
     Args:
@@ -410,6 +442,62 @@ def rcsb_api_ss(pdb, chain, PDB_chain = True): # by SZ
         for seg in ss_info_dict[key]:
             ss_index_dict[key].append((pdb_index[seg[0] - 1], pdb_index[seg[1] - 1]))
     return ss_index_dict
+
+
+def read_pdb_ss_dssp(pdb_file, ss_version = 3): # by SZ
+    """Calculate the secondary structure for the a PDB file with the DSSP.
+
+    Args:
+        pdb_file (str): The path of the PDB file.
+        ss_version (str): version of the secondary structure, 3-class or 8-class
+
+    Returns: 
+        dict: A dictionary tell the secondary structure of each residue.
+    """
+    ss_map_8_3 = {'H':'H','G':'H','I':'H','E':'E','B':'E','S':'C','T':'C','-':'C'}
+    ss_dict = {}
+    dssp_dict = dssp_dict_from_pdb_file(pdb_file)[0]
+
+    for key in dssp_dict.keys():
+        chain = key[0]
+        idx = remove(key[1][0] + str(key[1][1]) + key[1][2], ' ')
+        ss = dssp_dict[key][1]
+        if ss_version == 3:
+            ss = ss_map_8_3[ss]
+        if not chain in ss_dict.keys():
+            ss_dict[chain] = {}
+        ss_dict[chain][idx] = ss 
+
+    return ss_dict
+
+
+def read_pdb_sa_dssp(pdb_file, thredhold = 0.2): # by SZ
+    """Calculate the solvent accessible surface area (SASA) and the 2-state solvent accessibility (SA) for the a PDB file with the DSSP.
+
+    Args:
+        pdb_file (str): The path of the PDB file.
+        threshold (float): The threshold on the normalized SASA for buried and exposed. Default: 0.2 (based on https://academic.oup.com/nar/article/33/10/3193/1009111).
+
+    Returns: 
+        dict: A dictionary tell the solvent accessible surface area of each residue.
+    """
+    max_sasa_dict = {'ALA':129.0,'ARG':274.0,'ASN':195.0,'ASP':193.0,'CYS':167.0,'GLN':223.0,'GLU':225.0,'GLY':104.0,'HIS':224.0,'ILE':197.0,
+                     'LEU':201.0,'LYS':236.0,'MET':224.0,'PHE':240.0,'PRO':159.0,'SER':155.0,'THR':172.0,'TRP':285.0,'TYR':263.0,'VAL':174.0}
+    sa_dict = {}
+    dssp_dict = dssp_dict_from_pdb_file(pdb_file)[0]
+
+    for key in dssp_dict.keys():
+        chain = key[0]
+        idx = remove(key[1][0] + str(key[1][1]) + key[1][2], ' ')
+        aa = dssp_dict[key][0]
+        sasa = dssp_dict[key][2]
+        r_sasa = sasa / max_sasa_dict[aa]
+        sa = 'buried' if r_sasa <= thredhold else 'exposed'
+        if not chain in sa_dict.keys():
+            sa_dict[chain] = {}
+        sa_dict[chain][idx] = {'SASA': sasa, 'normalized-SASA': r_sasa, 'SA': sa}
+
+    return sa_dict
 
 #################################################################################
 # 2-D Features: Protein Graphs
