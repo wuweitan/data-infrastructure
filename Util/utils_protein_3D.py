@@ -3,13 +3,33 @@
 # and generate adjacent matrix and edge type. 
 #################################################################################
 
+from cmath import log
+import logging
+import os
+import sys
 import numpy as np
+import Bio.PDB
 from Bio.PDB.DSSP import dssp_dict_from_pdb_file
 
-import random
+import random, logging
 import networkx as nx
 import requests
 import json
+
+
+### CONSTANTS
+
+# Abbreviations for SS
+SS3_HELIX = 'H'
+SS3_STRAND = 'E'
+SS3_COIL = 'C'
+# Abbrevistions for RSA
+RSA2_BURIED = 'B'
+RSA2_EXPOSE = 'E'
+
+# SS8 to SS3
+SS8_TO_SS3 = {'H':'H', 'B':'E', 'E':'E', 'G':'H', 'I':'C', 'T':'C', 'S':'C', '-':'C'}
+
 
 #################################################################################
 # Auxiliary Funtions 
@@ -1295,3 +1315,174 @@ def TMscore_sym(pdb_1, pdb_2):
         return None
     return (float(tms_1) + float(tms_2))/2
 
+def ss3_from_pdb_mmcif(struct_file: str,
+                       logger: logging.Logger):
+    """Extract Second Structure(SS) information from structure file (mmCif format).
+
+    Args:
+        struct_file (str): full file path for input structure (file can be full file or only header part).
+        file_format (str): structure file format, one of {pdb, mmCif}.
+    
+    Returns:
+        dict<tuple,string>: tuple identifier (chain_id,residue_id) to SS element {'H','E','C'} dictionary.
+        residue id use author_seq_id;
+        Helix(H); Strand(E), Coil(C)
+    
+    Raises:
+
+    """
+    ss_dict = dict()
+    try:
+        mmcif_header=Bio.PDB.MMCIF2Dict.MMCIF2Dict(struct_file)
+        # helix
+        for r in range(len(mmcif_header['_struct_conf.conf_type_id'])):
+            chain = mmcif_header['_struct_conf.beg_auth_asym_id'][r]
+            startId = int(mmcif_header['_struct_conf.beg_auth_seq_id'][r])
+            endId = int(mmcif_header['_struct_conf.end_auth_seq_id'][r])
+            for idx in range(startId,endId+1):
+                ss_dict[chain,str(idx)] = SS3_HELIX
+        # strand
+        for r in range(len(mmcif_header['_struct_sheet_range.sheet_id'])):
+            chain = mmcif_header['_struct_sheet_range.beg_auth_asym_id'][r]
+            startId = int(mmcif_header['_struct_sheet_range.beg_auth_seq_id'][r])
+            endId = int(mmcif_header['_struct_sheet_range.end_auth_seq_id'][r])
+            for idx in range(startId,endId+1):
+                ss_dict[chain,str(idx)] = SS3_STRAND
+    except Exception as ex:
+        logger.error(ex)
+
+    return ss_dict
+
+def conPdbSeq_from_pdb_mmcif(pdb_file: str,
+                             entity_id: int,
+                             logger: logging.Logger):
+  """Read canonical pdb sequence from mmcif file
+
+  Args:
+    pdb_file (str): pdb file path
+
+  Returns:
+    str: canonical pdb sequence
+
+  Raises:
+    KeyError: '_entity_poly.pdbx_seq_one_letter_code_can' section not included in header part.
+  """
+  con_pdbSeq = None
+  try:
+    pdb_id, file_format = os.path.splitext(os.path.basename(pdb_file))
+    mmcif_header=Bio.PDB.MMCIF2Dict.MMCIF2Dict(pdb_file)
+    con_pdbSeq = mmcif_header['_entity_poly.pdbx_seq_one_letter_code_can'][entity_id-1].replace('\n','')
+  except Exception as err:
+    exception_message = str(err)
+    exception_type, exception_object, exception_traceback = sys.exc_info()
+    logger.error(f"Line {exception_traceback.tb_lineno}, {exception_type}:{exception_message}, pdb; {pdb_id}")
+  return con_pdbSeq
+
+def get_index_mapping(
+        pdb_id: str = None,
+        chain_id: str = None,
+        unpAcc: str = None,
+        logger: logging.Logger = None):
+  """
+  Modified based on function pdbmap_processs.queryApi_pdbInfo
+
+  Use RSCB API to get index mapping between
+  * uniprot residue index (continuous, need two value: begin_idx, end_idx)
+  * PDB residue index (continuous, need two value: begin_idx, end_idx)
+  * author defined PDB residue index(not continuous; need a list of numbers)
+  
+  
+  API returns author defined indices for the whole sequence, the positions covered by uniprot sequence are extracted as return
+  
+  Args:
+    chain_id (str): _label_asym_id in PDBx/mmCIF schema (not auth chain id!)
+  
+  Returns:
+    List: index mapping between three sets, size 3*L
+      1st row: uniprot indices of each amino acid from N-ter to c_ter
+      2nd row: PDB sequence indices of each amino acid from N-ter to c_ter
+      3rd row: author defined PDB sequence indices of each amino acid from N-ter to c_ter
+    str: uniprot sequence
+    str: pdb sequence
+    str: auth chain id
+    str: entity id
+
+  """
+  pdb_id, chain_id, unpAcc = pdb_id.upper(), chain_id.upper(), unpAcc.upper()
+  rcsbBase_url = "https://data.rcsb.org/graphql"
+  rcsb1d_url = "https://1d-coordinates.rcsb.org/graphql"
+  pdb_instance = '{}.{}'.format(pdb_id.upper(),chain_id.upper())
+  query_idxMap = '''
+  {{polymer_entity_instances(instance_ids: ["{pdb_ins}"]) {{
+      rcsb_id
+      rcsb_polymer_entity_instance_container_identifiers {{
+      auth_asym_id
+      entity_id
+      auth_to_entity_poly_seq_mapping}}
+      }}
+  }}
+  '''.format(pdb_ins=pdb_instance)
+  query_align = '''
+  {{alignment(from:PDB_INSTANCE,to:UNIPROT,queryId:"{}"){{
+      query_sequence
+      target_alignment {{
+      target_id
+      target_sequence
+      aligned_regions {{
+          query_begin
+          query_end
+          target_begin
+          target_end}}
+      }}
+  }}
+  }}
+  '''.format(pdb_instance) 
+  
+  threeIdxSetMap = []
+  
+  ## pdb-uniprot idx mapping
+  try:
+    unp_seq,pdb_seq,aligned_regions = None, None, None
+    res_align = req_sess.post(rcsb1d_url,json={'query':query_align})
+    res_align_json = res_align.json()
+    pdb_seq=res_align_json['data']['alignment']['query_sequence']
+    # one pdb seq could have more than 1 unp correspondence
+    for d in res_align_json['data']['alignment']['target_alignment']:
+      if d['target_id'] == unpAcc.upper():
+        unp_seq=d['target_sequence']
+        aligned_regions=d['aligned_regions']
+    if unp_seq is None: 
+      # no such unpAcc under this pdb,
+      #print(f"WARNING: {pdb_instance} has no matching seq for {unpAcc}", file=sys.stderr)
+      logger.warning(f"{pdb_instance} has no matching seq for {unpAcc}")
+    # loop over aligned regions
+    pdb_idxs = []
+    unp_idxs = [] 
+    if aligned_regions is not None:
+      for ali_reg in aligned_regions:
+        pdb_idxs.extend([str(tmpi) for tmpi in range(ali_reg['query_begin'],ali_reg['query_end']+1)])
+        unp_idxs.extend([str(tmpi) for tmpi in range(ali_reg['target_begin'],ali_reg['target_end']+1)])
+    threeIdxSetMap.append(unp_idxs)
+    threeIdxSetMap.append(pdb_idxs)
+    assert len(unp_idxs) == len(pdb_idxs)
+    ## author defined pdb idx - pdb idx
+    res_idxMap = req_sess.post(rcsbBase_url,json={'query':query_idxMap})
+    res_idxMap_json = res_idxMap.json()
+    auth_pdbSeq_mapping=res_idxMap_json['data']['polymer_entity_instances'][0]['rcsb_polymer_entity_instance_container_identifiers']['auth_to_entity_poly_seq_mapping']
+    auth_pdbSeq = [auth_pdbSeq_mapping[int(pdb_i)-1] for pdb_i in pdb_idxs] #insert case: e.g. '1A'
+    assert len(unp_idxs) == len(auth_pdbSeq)
+    threeIdxSetMap.append(auth_pdbSeq)
+
+    auth_chain_id = res_idxMap_json['data']['polymer_entity_instances'][0]['rcsb_polymer_entity_instance_container_identifiers']['auth_asym_id']
+    entity_id = res_idxMap_json['data']['polymer_entity_instances'][0]['rcsb_polymer_entity_instance_container_identifiers']['entity_id']
+
+  except KeyError as err:
+    exception_message = str(err)
+    exception_type, exception_object, exception_traceback = sys.exc_info()
+    logger.warning(f"Line {exception_traceback.tb_lineno}, {exception_type}:{exception_message}, pdb:{pdb_id}_{chain_id}")
+  except Exception as err:
+    exception_message = str(err)
+    exception_type, exception_object, exception_traceback = sys.exc_info()
+    logger.warning(f"Line {exception_traceback.tb_lineno}, {exception_type}:{exception_message}, pdb:{pdb_id}_{chain_id}")
+    
+  return threeIdxSetMap, unp_seq, pdb_seq, auth_chain_id, entity_id

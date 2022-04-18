@@ -11,7 +11,7 @@ from Bio.SubsMat import MatrixInfo as matlist
 matrix = matlist.blosum62
 
 
-# CONSTANTS
+### CONSTANTS
 
 PFAM_VOCAB = OrderedDict([
     ("<pad>", 0),
