@@ -16,7 +16,6 @@ import networkx as nx
 import requests
 import json
 
-
 ### CONSTANTS
 
 # Abbreviations for SS
@@ -29,7 +28,6 @@ RSA2_EXPOSE = 'E'
 
 # SS8 to SS3
 SS8_TO_SS3 = {'H':'H', 'B':'E', 'E':'E', 'G':'H', 'I':'C', 'T':'C', 'S':'C', '-':'C'}
-
 
 #################################################################################
 # Auxiliary Funtions 
@@ -501,8 +499,8 @@ def read_pdb_sa_dssp(pdb_file, thredhold = 0.2): # by SZ
     Returns: 
         dict: A dictionary tell the solvent accessible surface area of each residue.
     """
-    max_sasa_dict = {'ALA':129.0,'ARG':274.0,'ASN':195.0,'ASP':193.0,'CYS':167.0,'GLN':223.0,'GLU':225.0,'GLY':104.0,'HIS':224.0,'ILE':197.0,
-                     'LEU':201.0,'LYS':236.0,'MET':224.0,'PHE':240.0,'PRO':159.0,'SER':155.0,'THR':172.0,'TRP':285.0,'TYR':263.0,'VAL':174.0}
+    max_sasa_dict = {'ALA':113.0,'ARG':241.0,'ASN':158.0,'ASP':151.0,'CYS':140.0,'GLN':183.0,'GLU':189.0,'GLY':85.0,'HIS':194.0,'ILE':182.0,
+                     'LEU':180.0,'LYS':211.0,'MET':204.0,'PHE':218.0,'PRO':143.0,'SER':122.0,'THR':146.0,'TRP':259.0,'TYR':229.0,'VAL':160.0}
     sa_dict = {}
     dssp_dict = dssp_dict_from_pdb_file(pdb_file)[0]
 
