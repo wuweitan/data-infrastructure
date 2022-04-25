@@ -6,7 +6,8 @@ from typing import List
 import numpy as np
 from sqlalchemy import null
 from Bio import pairwise2
-from Bio.SubsMat import MatrixInfo as matlist 
+from Bio.SubsMat import MatrixInfo as matlist
+import os
 
 matrix = matlist.blosum62
 
@@ -42,6 +43,12 @@ PFAM_VOCAB = OrderedDict([
     ("Y", 25),
     ("B", 26),
     ("Z", 27)])
+
+dict_PSAIA_table_file_name_to_col_idx = {'chain id': 0, 'ch total ASA': 1, 'ch b-bone ASA': 2, 'ch s-chain ASA': 3, 'ch polar ASA': 4, 
+'ch n-polar ASA': 5, 'res id': 6, 'res name': 7, 'total ASA': 8, 'b-bone ASA': 9, 's-chain ASA': 10, 'polar ASA': 11, 
+'n-polar ASA': 12, 'total RASA': 13, 'b-bone RASA': 14, 's-chain RASA': 15, 'polar RASA': 16, 'n-polar RASA': 17, 
+'average DPX': 18, 's_avg DPX': 19, 's-ch avg DPX': 20, 's-ch s_avg DPX': 21, 'max DPX': 22, 'min DPX': 23, 
+'average CX': 24, 's_avg CX': 25, 's-ch avg CX': 26, 's-ch s_avg CX': 27, 'max CX': 28, 'min CX': 29, 'Hydrophobicity': 30}
 
 
 #################################################################################
@@ -306,3 +313,189 @@ def seq_predicted_rsa():
     
     """
     return null
+
+### Following is a helper function to parse the PSAIA table file ###
+def parse_PSAIA_table_file(path_to_txt_file):
+    """ parse the output file from PSAIA to get the vertex features {"rASA", "PI", "Hydrophobicity"}
+
+    Args:
+        path_to_txt_file (str): the path to the file to be parsed
+
+    Returns:
+        dict_out (dict): a python dictionary containing the information about the ATOM residues including 
+            1) chain id: the chain they are on 
+            2) lists of floats/floats for {"rASA", "PI", "Hydrophobicity"} 
+            3) res name
+            4) res id
+        dict_res_ind_ls (dict): a python dictionary containing the lists of res ids for all chain ids ({chain id: lists of res ids})
+
+    """
+    # a list of column header names that are useful
+    ls_col_name = ['chain id', 'res id', 'res name', 'total RASA', 'average CX', 's_avg CX', 's-ch avg CX', 's-ch s_avg CX', 'max CX', 'min CX', 'Hydrophobicity']
+
+    dict_out = {}
+    dict_res_ind_ls = {}
+
+    start_line_idx = 8
+
+    idx = 0
+    for open(path_to_txt_file, "r") as rf:
+        # skip the headers
+        for line in rf:
+            if idx < start_line_idx:
+                idx += 1
+                continue
+            else:
+                idx += 1
+                splt_line = line.strip().split()
+
+                chain_id = splt_line[dict_PSAIA_table_file_name_to_col_idx['chain id']]
+                res_id = splt_line[dict_PSAIA_table_file_name_to_col_idx['res id']]
+                res_name = splt_line[dict_PSAIA_table_file_name_to_col_idx['res name']]
+                total_RASA = float(splt_line[dict_PSAIA_table_file_name_to_col_idx['total RASA']])
+                CX_np = [float(splt_line[dict_PSAIA_table_file_name_to_col_idx[ls_col_name[i]]]) for i in range(4,10)]
+                Hydrophobicity = float(splt_line[dict_PSAIA_table_file_name_to_col_idx['Hydrophobicity']])
+
+                # whether there is a chain in the both dicts
+                if chain_id not in dict_out:
+                    dict_out[chain_id] = {}
+                if chain_id not in dict_res_ind_ls:
+                    dict_res_ind_ls[chain_id] = []
+                
+                # complete both the dict for The residue
+                dict_out[chain_id][res_id] = {}
+                dict_out[chain_id][res_id]['res name'] = res_name
+                dict_out[chain_id][res_id]['total RASA'] = total_RASA
+                dict_out[chain_id][res_id]['CX'] = CX_np
+                dict_out[chain_id][res_id]['Hydrophobicity'] = Hydrophobicity
+
+                dict_res_ind_ls[chain_id].append(res_id)
+
+    return dict_out, dict_res_ind_ls
+
+def NormalizeData(data, axis = 0):
+    """ Normalize data along some axis 
+    """
+    return (data - np.min(data, axis=axis)) / (np.max(data, axis=axis) - np.min(data, axis=axis))
+
+
+#TODO: Pass in a chain order list argument and make the function read out the features in this order
+### calculate rASA, Normalized Protrusion Index, Normalized Hydrophobicity ###
+def calc_PSAIA_features(path_to_pdb_list, path_to_exe = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/bin/linux/psa/psa", \
+path_to_config = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/INPUT/psaia_config_file_input.txt", \
+path_to_output_dir = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/OUTPUT",\
+rASA = True, PI = True, Hydrophobicity = True):
+    """ rASA, Normalized Protrusion Index, Normalized Hydrophobicity calculation function
+
+    Args:
+        path_to_pdb_list (str): the path to the text file which contains all the pdb file names 
+            (one file name for one line)
+        path_to_exe (str): the path to the installed the PSAIA executables 
+            (default value: "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/bin/linux/psa/psa")
+        path_to_config (str): the path to the configuration file for the PSAIA software
+            (default value: "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/INPUT/psaia_config_file_input.txt")
+        path_to_output_dir (str): the path to the output directory for the PSAIA software which should correspond to the specifications in the config file
+            (default value:"/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/OUTPUT")
+        rASA (bool): whether rASA is part of the outputs
+        PI (bool): whether PI is part of the outputs
+        Hydrophobicity (bool): whether Hydrophobicity is part of the outputs
+    
+    Returns:
+        Out_dict (dict): a python dictionary containing keys {the pdb file names w/o the suffix ".pdb"} 
+            whose corresponding value is a python dict with 
+            (1) keys some/all of {"rASA", "PI", "Hydrophobicity"} and values {a numpy array with shape (n_res, n_features)} pairs 
+            (2) chain_id: the list of res idx
+            (3) "chain order": the order according to which the chains are concatenated
+
+    Notes:
+        "Normalized" here means normalizing the features on a per protein basis
+
+    """
+
+    # Initialize the output python dict
+    Out_dict = {}
+
+    #
+    # read the text files specified in the path_to_pdb_list
+
+    # relative path (against the inner most directory)
+    rel_pdb_list = []
+    with open(path_to_pdb_list, "r") as rf:
+        for line in rf:
+            rel_path = line.strip().split("/")[-1]
+            abs_pdb_list.append(rel_path)
+
+    # the list of name strings w/o ".pdb"
+    ls_name = []
+    for name in rel_pdb_list:
+        ls_name.append(name[:-4])
+
+
+    #
+    # execute the executables
+    cmd_str = path_to_exe + " " + path_to_config + " " + path_to_pdb_list
+    os.system(cmd_str)
+    
+    #
+    # read the output from the output directotry containing all the output table files
+
+    # check whether path_to_output_dir ends with "/" and append one if not
+    if path_to_output_dir[-1] != "/":
+        path_to_output_dir += "/"
+
+    ls_output_file_names = os.listdir(path_to_output_dir)
+
+    for file_name in ls_output_file_names:
+        abs_fname = path_to_output_dir + file_name
+
+        dict_out, dict_res_ind_ls = parse_PSAIA_table_file(abs_fname)
+
+        # rASA (shape: (n_res, ))
+        # Normalized Protrusion Index (shape: (n_res, 6))
+        # Hydrophobicity (shape: (n_res, ))
+
+        pro_rASA = []
+        pro_PI = []
+        pro_H = []
+        chain_order = []
+
+        for chain_id in dict_res_ind_ls:
+            ls_idx = dict_res_ind_ls[chain_id]
+
+            # figure out the chain order
+            chain_order.append(chain_id)
+            
+            for idx in ls_idx:
+                total_RASA = dict_out[chain_id][idx]['total RASA']
+                CX_np = dict_out[chain_id][idx]['CX']
+                Hydrophobicity = dict_out[chain_id][idx]['Hydrophobicity']
+
+                pro_rASA.append(total_RASA)
+                pro_PI.append(CX_np)
+                pro_H.append(Hydrophobicity)
+        
+        # convert to numpy array
+        pro_rASA = np.array(pro_rASA)
+        pro_PI = np.array(pro_PI)
+        pro_H = np.array(pro_H)
+
+        # normalize PI and Hydrophobicity on a per protein basis
+        normed_pro_PI = NormalizeData(pro_PI)
+        normed_pro_H = NormalizeData(pro_H)
+
+        #
+        # complete the Out_dict
+        name = file_name[:-25]
+
+        # (1) keys some/all of {"rASA", "PI", "Hydrophobicity"} and values {a numpy array with shape (n_res, n_features)} pairs
+        Out_dict[name]["rASA"] = pro_rASA
+        Out_dict[name]["PI"] = normed_pro_PI
+        Out_dict[name]["Hydrophobicity"] = normed_pro_H
+
+        # (2) chain_id: the list of res idx
+        Out_dict[name].update(dict_res_ind_ls)
+
+        # (3) "chain order": the order according to which the chains are concatenated
+        Out_dict[name]["chain order"] = chain_order
+
+    return Out_dict
