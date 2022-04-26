@@ -499,3 +499,12 @@ rASA = True, PI = True, Hydrophobicity = True):
         Out_dict[name]["chain order"] = chain_order
 
     return Out_dict
+
+
+``` PSSM
+Reference: https://support.cyrusbio.com/workflows/create-a-pssm/
+1. Donwload alignment database: wget ftp://ftp.ncbi.nih.gov/blast/db/FASTA/nr.gz
+2. Build database: PATH\ncbi-blast-2.7.1+\bin\makeblastdb -in PATH\nr -input_type fasta -title nonR -dbtype prot
+3. Prepare your fasta file for proteins, e.g. 5ORB.fasta
+4. PSSM: perl PATH\blast+\bin\legacy_blast.pl blastpgp -d PATH\nr -j 4 -b 1 -a 2 -Q PATH\5ORB.pssm -i PATH\5ORB.fasta –path PATH\blast+\bin
+```
