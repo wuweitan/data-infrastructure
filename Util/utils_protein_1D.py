@@ -9,6 +9,17 @@ from Bio import pairwise2
 from Bio.SubsMat import MatrixInfo as matlist
 import os
 
+from Bio.PDB.ResidueDepth import residue_depth
+from Bio.PDB.ResidueDepth import ca_depth
+from Bio.PDB.ResidueDepth import get_surface
+from Bio.PDB.PDBParser import PDBParser
+
+from numpy import pi
+from Bio.PDB.vectors import rotaxis2m
+from Bio.PDB.vectors import Vector
+
+from Bio.PDB import *
+
 matrix = matlist.blosum62
 
 
@@ -49,6 +60,10 @@ dict_PSAIA_table_file_name_to_col_idx = {'chain id': 0, 'ch total ASA': 1, 'ch b
 'n-polar ASA': 12, 'total RASA': 13, 'b-bone RASA': 14, 's-chain RASA': 15, 'polar RASA': 16, 'n-polar RASA': 17, 
 'average DPX': 18, 's_avg DPX': 19, 's-ch avg DPX': 20, 's-ch s_avg DPX': 21, 'max DPX': 22, 'min DPX': 23, 
 'average CX': 24, 's_avg CX': 25, 's-ch avg CX': 26, 's-ch s_avg CX': 27, 'max CX': 28, 'min CX': 29, 'Hydrophobicity': 30}
+
+set_bb_atom_name = set(["N", "C", "CA", "O"])
+
+eps = 1e-8
 
 
 #################################################################################
@@ -314,7 +329,41 @@ def seq_predicted_rsa():
     """
     return null
 
-### Following is a helper function to parse the PSAIA table file ###
+
+### The function for imputing the Cb position for Gly ###
+def getGlyCbPosBynccaCoord(list_atomCoords):
+	""" Calculate the C Beta position for the Glycine
+
+	    Args:
+	        1. list_atomCoords (list): A list of tuples of xyz coordinates for N, C, CA atoms. ([(x1, y1, z1), (x2, y2, z2), (x3, y3, z3)])
+
+	    Returns:
+	        1. cb (list): The position coordinates vector for C Beta
+
+	"""
+
+	# check if n/c/ca coordinate info exists. (If no, return None)
+	try:
+		# get atom coordinates as vectors
+		n = Vector(list_atomCoords[0])
+		c = Vector(list_atomCoords[1])
+		ca = Vector(list_atomCoords[2])
+	except Exception:
+		return None
+
+	# center at origin
+	n = n - ca
+	c = c - ca
+	# find rotation matrix that rotates n -120 degrees along the ca-c vector
+	rot = rotaxis2m(-pi * 120.0 / 180.0, c)
+	# apply rotation to ca-n vector
+	cb_at_origin = n.left_multiply(rot)
+	# put on top of ca atom
+	cb = cb_at_origin + ca
+	cb = list(cb)
+
+	return cb
+
 def parse_PSAIA_table_file(path_to_txt_file):
     """ parse the output file from PSAIA to get the vertex features {"rASA", "PI", "Hydrophobicity"}
 
@@ -339,7 +388,7 @@ def parse_PSAIA_table_file(path_to_txt_file):
     start_line_idx = 8
 
     idx = 0
-    for open(path_to_txt_file, "r") as rf:
+    with open(path_to_txt_file, "r") as rf:
         # skip the headers
         for line in rf:
             if idx < start_line_idx:
@@ -379,36 +428,69 @@ def NormalizeData(data, axis = 0):
     return (data - np.min(data, axis=axis)) / (np.max(data, axis=axis) - np.min(data, axis=axis))
 
 
-#TODO: Pass in a chain order list argument and make the function read out the features in this order
-### calculate rASA, Normalized Protrusion Index, Normalized Hydrophobicity ###
+def parse_pdb_list_file(path_to_pdb_list):
+    """ parse the text file for a bunch of pdb list
+
+        Args:
+            path_to_pdb_list (str): the path to the text file which contains all the pdb file names 
+                (one file name for one line)
+        
+        Returns:
+            abs_pdb_list (list(str)): list of absolute paths to the pdb files
+            rel_pdb_list (list(str)): list of relative paths to the pdb files (against the inner most folder)
+            ls_name (list(str)): list of names of proteins (the relative path w/o ".pdb")
+
+    """
+
+    abs_pdb_list = []
+    rel_pdb_list = []
+    ls_name = []
+    with open(path_to_pdb_list, "r") as rf:
+        for line in rf:
+            abs_path = line.strip()
+            ls_name.append(line.strip().split('/')[-1][:-4])
+            rel_pdb_list.append(line.strip().split('/')[-1])
+            abs_pdb_list.append(abs_path)
+    
+    return abs_pdb_list, rel_pdb_list, ls_name
+
+
+
+
+####TODO: Pass in a chain order list argument and make the function read out the features in this order
+
+### rASA, Normalized Protrusion Index, Normalized Hydrophobicity calculation function ###
 def calc_PSAIA_features(path_to_pdb_list, path_to_exe = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/bin/linux/psa/psa", \
 path_to_config = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/INPUT/psaia_config_file_input.txt", \
 path_to_output_dir = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/OUTPUT",\
-rASA = True, PI = True, Hydrophobicity = True):
+rASA = True, PI = True, Hydrophobicity = True, \
+preferred_chain_order_file = None):
     """ rASA, Normalized Protrusion Index, Normalized Hydrophobicity calculation function
 
-    Args:
-        path_to_pdb_list (str): the path to the text file which contains all the pdb file names 
-            (one file name for one line)
-        path_to_exe (str): the path to the installed the PSAIA executables 
-            (default value: "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/bin/linux/psa/psa")
-        path_to_config (str): the path to the configuration file for the PSAIA software
-            (default value: "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/INPUT/psaia_config_file_input.txt")
-        path_to_output_dir (str): the path to the output directory for the PSAIA software which should correspond to the specifications in the config file
-            (default value:"/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/OUTPUT")
-        rASA (bool): whether rASA is part of the outputs
-        PI (bool): whether PI is part of the outputs
-        Hydrophobicity (bool): whether Hydrophobicity is part of the outputs
+        Args:
+            path_to_pdb_list (str): the path to the text file which contains all the pdb file names 
+                (one file name for one line)
+            path_to_exe (str): the path to the installed the PSAIA executables 
+                (default value: "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/bin/linux/psa/psa")
+            path_to_config (str): the path to the configuration file for the PSAIA software
+                (default value: "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/INPUT/psaia_config_file_input.txt")
+            path_to_output_dir (str): the path to the output directory for the PSAIA software which should correspond to the specifications in the config file
+                (default value: "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/OUTPUT")
+            rASA (bool): whether rASA is part of the outputs
+            PI (bool): whether PI is part of the outputs
+            Hydrophobicity (bool): whether Hydrophobicity is part of the outputs
+            preferred_chain_order_file (str): a text file contains chain order strings with one line for one protein each (for one line e.g. AB)
+                (default value: None)
     
-    Returns:
-        Out_dict (dict): a python dictionary containing keys {the pdb file names w/o the suffix ".pdb"} 
-            whose corresponding value is a python dict with 
-            (1) keys some/all of {"rASA", "PI", "Hydrophobicity"} and values {a numpy array with shape (n_res, n_features)} pairs 
-            (2) chain_id: the list of res idx
-            (3) "chain order": the order according to which the chains are concatenated
+        Returns:
+            Out_dict (dict): a python dictionary containing keys {the pdb file names w/o the suffix ".pdb"} 
+                whose corresponding value is a python dict with 
+                (1) keys some/all of {"rASA", "PI", "Hydrophobicity"} and values {a numpy array with shape (n_res, n_features)} pairs 
+                (2) chain_id: the list of res idx
+                (3) "chain order": the order according to which the chains are concatenated
 
-    Notes:
-        "Normalized" here means normalizing the features on a per protein basis
+        Notes:
+            "Normalized" here means normalizing the features on a per protein basis
 
     """
 
@@ -417,18 +499,10 @@ rASA = True, PI = True, Hydrophobicity = True):
 
     #
     # read the text files specified in the path_to_pdb_list
+    abs_pdb_list, rel_pdb_list, ls_name = parse_pdb_list_file(path_to_pdb_list)
 
-    # relative path (against the inner most directory)
-    rel_pdb_list = []
-    with open(path_to_pdb_list, "r") as rf:
-        for line in rf:
-            rel_path = line.strip().split("/")[-1]
-            abs_pdb_list.append(rel_path)
-
-    # the list of name strings w/o ".pdb"
-    ls_name = []
-    for name in rel_pdb_list:
-        ls_name.append(name[:-4])
+    # set of names
+    set_name = set(ls_name)
 
 
     #
@@ -446,6 +520,12 @@ rASA = True, PI = True, Hydrophobicity = True):
     ls_output_file_names = os.listdir(path_to_output_dir)
 
     for file_name in ls_output_file_names:
+
+        name = file_name[:-25]
+
+        if name not in set_name:
+            continue
+
         abs_fname = path_to_output_dir + file_name
 
         dict_out, dict_res_ind_ls = parse_PSAIA_table_file(abs_fname)
@@ -475,9 +555,14 @@ rASA = True, PI = True, Hydrophobicity = True):
                 pro_H.append(Hydrophobicity)
         
         # convert to numpy array
-        pro_rASA = np.array(pro_rASA)
-        pro_PI = np.array(pro_PI)
-        pro_H = np.array(pro_H)
+        pro_rASA = np.array(pro_rASA, dtype=np.float)
+        pro_PI = np.array(pro_PI, dtype=np.float)
+        pro_H = np.array(pro_H, dtype=np.float)
+
+        # #####
+        # print(pro_rASA.shape)
+        # print(pro_PI.shape)
+        # print(pro_H.shape)
 
         # normalize PI and Hydrophobicity on a per protein basis
         normed_pro_PI = NormalizeData(pro_PI)
@@ -485,7 +570,7 @@ rASA = True, PI = True, Hydrophobicity = True):
 
         #
         # complete the Out_dict
-        name = file_name[:-25]
+        Out_dict[name] = {}
 
         # (1) keys some/all of {"rASA", "PI", "Hydrophobicity"} and values {a numpy array with shape (n_res, n_features)} pairs
         Out_dict[name]["rASA"] = pro_rASA
@@ -498,6 +583,242 @@ rASA = True, PI = True, Hydrophobicity = True):
         # (3) "chain order": the order according to which the chains are concatenated
         Out_dict[name]["chain order"] = chain_order
 
+        #####
+        print(name)
+
+    return Out_dict
+
+#
+# test function calc_PSAIA_features(path_to_pdb_list, path_to_exe = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/bin/linux/psa/psa", \
+# path_to_config = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/INPUT/psaia_config_file_input.txt", \
+# path_to_output_dir = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/OUTPUT",\
+# rASA = True, PI = True, Hydrophobicity = True, \
+# preferred_chain_order_file = None)
+# path = "/scratch/user/rujieyin/seq_process/PSAIA/Programs/PSAIA_1.0_source/INPUT/pdb_list.fls"
+# print(calc_PSAIA_features(path))
+
+
+### residue depth calculation function ###
+def cal_residue_depth(path_to_pdb_list):
+    """ Calculate residue depth using biopython for average distance and C-alpha distance
+
+        Args:
+            path_to_pdb_list (str): the path to the text file which contains all the pdb file names 
+                (one file name for one line)
+            
+        Returns:
+            Out_dict (dict): a python dictionary containing keys {the pdb file names w/o the suffix ".pdb"} 
+                whose corresponding value is a numpy array with shape (n_res, 2)
+                (0th feature is for the average distance and 1th for the C-alpha distance)
+        Notes:
+            First please install the MSMS software tool and correctly set the env var PATH
+
+    """
+    
+    # output
+    Out_dict = {}
+
+
+    #
+    # read the text files specified in the path_to_pdb_list
+
+    # get: (1) the name of the pdb files (the one wo ".pdb"); 
+    #      (2) the abs path for the pdb files 
+
+    # the list of abs path for the pdb files
+    # the list of the name of the pdb files
+    abs_pdb_list, rel_pdb_list, ls_name = parse_pdb_list_file(path_to_pdb_list)
+
+    #
+    # get all the residue depths
+    for path, name in zip(abs_pdb_list, ls_name):
+        parser = PDBParser()
+        structure = parser.get_structure(name, path)
+        model = structure[0]
+
+        # get the surface
+        surface = get_surface(model)
+
+        # get all the residue in the model and compute two kinds of residue depths
+        ls_all_rd = []
+        for res in model.get_residues():
+            ls_rd = []
+            # ls_rd.append(float(residue_depth(res, surface)))
+            # ls_rd.append(float(ca_depth(res, surface)))
+            # print(type(residue_depth(res, surface)))
+            ls_rd.append(residue_depth(res, surface))
+            ls_rd.append(ca_depth(res, surface))
+            # ls_rd = np.array(ls_rd)
+            ls_all_rd.append(ls_rd)
+    
+        #
+        # complete the dictionary
+        Out_dict[name] =  np.array(ls_all_rd, dtype=float)
+
+        ######
+        print(name)
+    
+    return Out_dict
+
+# test the residue depth calculation
+# path = "/scratch/user/rujieyin/Uniprot-ID-Filter/yes_pdb_file_path_list.txt"
+# cal_residue_depth(path)
+
+### Half Sphere Amino Acid Composition calculation function ###
+def cal_HSAAC(path_to_pdb_list, cut_off = 8.0):
+    """ calculate Half Sphere Amino Acid Composition
+
+        Args:
+            path_to_pdb_list (str): the path to the text file which contains all the pdb file names 
+                (one file name for one line) 
+            cut_off (float): the cut off distance used for neighborhood definition 
+                (default value: 8.0) 
+
+        Returns:
+            Out_dict (dict): a python dictionary containing keys {the pdb file names w/o the suffix ".pdb"} 
+                whose corresponding value is a numpy array with shape (n_res, 40)
+                (0-19th percentage features are for the up sphere and 20-39th percentage features are for the down sphere)
+
+    """
+    # initialize the output Out_dict
+    Out_dict = {}
+
+    #
+    # read the text files specified in the path_to_pdb_list
+    abs_pdb_list, rel_pdb_list, ls_name = parse_pdb_list_file(path_to_pdb_list)
+
+    
+    for abs_path, rel_path, name in zip(abs_pdb_list, rel_pdb_list, ls_name):
+
+        #
+        # parse the pdb files with biopython PDBparser
+        parser = PDBParser()
+
+        structure = parser.get_structure(name, abs_path)
+        model = structure[0]
+
+        #
+        # the side chain vector (the average of the unit vectors of the side chain vectors)
+        #                       (if the interested residue is GLY, the side chain vector is the CA-virtual_CB vector)
+
+        dict_res_to_sc_vec = {}
+        ls_res = []
+
+        for r in model.get_residues():
+            #
+            # average side chain vector
+            ave_sc_vec = None
+            # list of res objects
+            ls_res.append(r)
+            
+            if r.get_resname() == 'GLY':
+                # For GLY
+                try:
+                    list_atomCoords = [tuple(r['N'].get_vector()), tuple(r['C'].get_vector()), tuple(r['CA'].get_vector())]
+                    
+
+                    # below two objects are python list
+                    CB_coord = getGlyCbPosBynccaCoord(list_atomCoords)
+
+                    CA_coord = list(r['CA'].get_vector())
+        #             The following line will throw the error message: "TypeError: unsupported operand type(s) for -: 'list' and 'list'""
+        #             print(CA_coord-CB_coord)
+                    CA_CB_vec = Vector(CB_coord)-Vector(CA_coord)
+        #             print(CA_CB_vec)
+
+                    CA_CB_vec = CA_CB_vec/CA_CB_vec.norm()
+
+                    # use CA-CB vector as the average side chain vector for GLY
+                    ave_sc_vec = CA_CB_vec
+                except:
+                    # TODO:
+                    print("the GLY doesn't have all three bb atoms coordinates!!!")
+                    print(r.get_resname())
+                    # for atom in r:
+                    #     print(atom.get_name())
+                    pass
+            else:
+                try:
+                    sum_norm_vec = Vector(0,0,0)
+                    ct_vec = 0
+
+                    for atom in r.get_atoms():
+                        if atom.get_name() in set_bb_atom_name:
+                            continue
+                        else:
+                            diff_vec = atom.get_vector()-r['CA'].get_vector()
+                            sum_norm_vec += diff_vec/diff_vec.norm()
+                            ct_vec += 1
+
+                    ave_sc_vec = sum_norm_vec / (ct_vec * 1.0)
+                except:
+                    print("the non GLY doesn't have some atoms coordinates!!!")
+            
+            # complete the dict_res_to_sc_vec
+            dict_res_to_sc_vec[r] = ave_sc_vec
+
+        #
+        # complete the Output numpy array
+
+        atom_list = Selection.unfold_entities(model, 'A') # A for atoms
+        # print(atom_list)
+        ns = NeighborSearch(atom_list)
+        neighbors = ns.search_all(cut_off, 'R') # 8.0 for distance in angstrom
+        neighbors = set(neighbors)
+
+        # dict from res to idx
+        dict_res_to_idx = dict([(res, i) for i, res in enumerate(ls_res)])
+
+        # !!!!!!!!
+        n_res = len(ls_res)
+
+        # Output (dtype: np.array(n_res, 40); (0-19) for the positively correlated residues; (20-39)  for the negatively correlated residues)
+        Output = np.zeros((n_res, 40))
+
+        for pair in neighbors:
+            if pair[0] == pair[1]:
+        #         print("!!!!!!!!")
+                continue
+            for i in range(2):
+                
+                try:
+                    tar_res, nb_res = pair[(0+i)%2], pair[(1+i)%2]
+        #             print(tar_res, nb_res)
+
+                    if not is_aa(nb_res, standard=True):
+                        continue
+                    # side chain vector
+                    sc_vec = dict_res_to_sc_vec[tar_res]
+                    # displacement vector (CA_nb - CA_tar)
+                    dp_vec = nb_res['CA'].get_vector() - tar_res['CA'].get_vector()
+
+                    #
+                    # determine whether the dp_vec is on the up/down sphere
+                    resname = nb_res.get_resname()
+                    if resname not in dict_AA_to_idx:
+                        continue
+
+                    if sc_vec*dp_vec >= 0:
+                        Output[dict_res_to_idx[tar_res], dict_AA_to_idx[resname]] += 1
+                    else:
+                        Output[dict_res_to_idx[tar_res], dict_AA_to_idx[resname]+20] += 1
+                except:
+                    print("Some key error in the line: for pair in neighbors:")
+                    pass
+        
+        # percentagize Output
+        Output[:, :20] /= (np.sum(Output[:, :20], axis = 1).reshape(-1, 1) + eps)
+        Output[:, 20:] /= (np.sum(Output[:, 20:], axis = 1).reshape(-1, 1) + eps)
+
+
+        #
+        # store the value into the Out_dict
+
+        Out_dict[name] = Output
+
+        #####
+        print(name)
+    
     return Out_dict
 
 
