@@ -523,12 +523,6 @@ def read_pdb_sa_dssp(pdb_file, thredhold = 0.2): # by SZ
 # 2-D Features: Protein Graphs
 #################################################################################
 
-###################### Residue-wise Protein Graphs ##############################
-
-"""
-Yuning and Rujie may add their corresponding code here.
-"""
-
 ##########################################################################################################
 ########################## Generate Cb-Cb distance/phi/psi/theta angle 2D maps ###########################
 ##########################################################################################################
@@ -937,10 +931,6 @@ def preprocessing(pdb_ids, chains_b_r, chains_b_l, chains_u_r, chains_u_l, path_
     # dict mask for r, l mask = {0: np.array(...), 1: np.array(...)}
     mask = {}
 
-    
-
-
-
     # rec and lig
 
     # chains_b --> chains_b_r/l
@@ -1062,7 +1052,6 @@ def preprocessing(pdb_ids, chains_b_r, chains_b_l, chains_u_r, chains_u_l, path_
     # print(out_dict["complex_code"], len(out_dict["conc_seq"]["lig"]), out_dict["conc_bb_coord"]["rec"]["b"].shape, out_dict["mask"].shape, out_dict["labels"].shape
     # , out_dict["mask_pair"])#.shape)
     # )
-
 
     with open("labels/"+"{}.pickle".format(pdb_b), "wb") as f:
         pickle.dump(out_dict, f)
@@ -1580,6 +1569,8 @@ class Protein_Graph(object):
         return element
              
     ####################### Graph Construction ##########################
+
+    ###### Residue-wise Graph Construction ######
 
     ###### TOPS Graph Construction ######
 
