@@ -2,6 +2,7 @@
 # Utility functions for data process and evaluation on 1-D sequences.
 #################################################################################
 
+from collections import OrderedDict
 from typing import List
 import numpy as np
 from sqlalchemy import null
@@ -20,10 +21,12 @@ from Bio.PDB.vectors import Vector
 
 from Bio.PDB import *
 
-matrix = matlist.blosum62
-
+import torch
+from torch import nn
 
 ### CONSTANTS
+
+matrix = matlist.blosum62
 
 PFAM_VOCAB = OrderedDict([
     ("<pad>", 0),
@@ -65,6 +68,9 @@ set_bb_atom_name = set(["N", "C", "CA", "O"])
 
 eps = 1e-8
 
+BLOSUM62_AA_LIST = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'Z']
+
+ALPHABET = ['#', 'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 
 #################################################################################
 # 1-D Sequences Process
@@ -202,6 +208,7 @@ class SequenceTokenizersClass():
             raise Exception("vocab not known!")
         self.tokens = list(self.vocab.keys())
         self._vocab_type = vocab
+        self.blosum62Vec = self.convert_blosumMat_to_blosumVec(matrix)
         assert self.start_token in self.vocab and self.stop_token in self.vocab
 
     @property
@@ -222,6 +229,10 @@ class SequenceTokenizersClass():
             return "<mask>"
         else:
             raise RuntimeError(f"{self._vocab_type} vocab does not support masking")
+
+    @property
+    def blosum62Vec(self) -> dict:
+        return self.blosum62Vec
 
     def tokenize(self, text: str) -> List[str]:
         return [x for x in text]
@@ -264,38 +275,30 @@ class SequenceTokenizersClass():
         tokens = self.add_special_tokens(tokens)
         token_ids = self.convert_tokens_to_ids(tokens)
         return np.array(token_ids, np.int64)
-
+    
+    def convert_token_to_blosum62Vec(self, token: str) -> np.ndarray:
+        return self.blosum62Vec[token]    
+    
     @classmethod
-    def from_pretrained(cls, **kwargs):
-        return cls()
-
-
-def blosum62_from_msa_a3m(msa_file: str):
-    """Calculate substitution matrix BLOSUM62 from a MSA input (a3m format)
-    
-    Args:
-        msa_file: MSA file path
-    
-    Returns:
-        numpy.ndarray: BLOSUM62 matrix of size 20*20
-    """
-    return null
-
-def blosum62_from_msa_stockholm(msa_file: str):
-    """Calculate substitution matrix BLOSUM62 from a MSA input (stockholm format)
-    
-    Args:
-        msa_file: MSA file path
-    
-    Returns:
-        numpy.ndarray: BLOSUM62 matrix of size 20*20
-    """
-    return null
+    def convert_blosumMat_to_blosumVec(blosumMat: dict) -> dict:
+        blosumVec = {}
+        blosum_aa_idx = {}
+        len_aa = len(BLOSUM62_AA_LIST)
+        for aa_i in range(len_aa):
+            blosum_aa_idx[BLOSUM62_AA_LIST[aa_i]] = aa_i
+            blosumVec[BLOSUM62_AA_LIST[aa_i]] = np.zeros(len_aa)
+        for key, value in blosumMat.items():
+            aa1,aa2 = key
+            blosumVec[aa1][blosum_aa_idx[aa2]] = value
+            blosumVec[aa2][blosum_aa_idx[aa1]] = value
+        return blosumVec
 
 
 def pssm_from_msa_a3m(msa_file: str):
     """Calculate positional specific substitution matrix PSSM from a MSA input (a3m format)
     
+    Author: Yuanfei Sun
+
     Args:
         msa_file: MSA file path
     
@@ -307,6 +310,8 @@ def pssm_from_msa_a3m(msa_file: str):
 def pssm_from_msa_stockholm(msa_file: str):
     """Calculate positional specific substitution matrix PSSM from a MSA input (stockholm format)
     
+    Author:Yuanfei Sun
+
     Args:
         msa_file: MSA file path
     
@@ -822,10 +827,58 @@ def cal_HSAAC(path_to_pdb_list, cut_off = 8.0):
     return Out_dict
 
 
-``` PSSM
+""" PSSM
 Reference: https://support.cyrusbio.com/workflows/create-a-pssm/
 1. Donwload alignment database: wget ftp://ftp.ncbi.nih.gov/blast/db/FASTA/nr.gz
 2. Build database: PATH\ncbi-blast-2.7.1+\bin\makeblastdb -in PATH\nr -input_type fasta -title nonR -dbtype prot
 3. Prepare your fasta file for proteins, e.g. 5ORB.fasta
 4. PSSM: perl PATH\blast+\bin\legacy_blast.pl blastpgp -d PATH\nr -j 4 -b 1 -a 2 -Q PATH\5ORB.pssm -i PATH\5ORB.fasta –path PATH\blast+\bin
-```
+"""
+
+class AAEmbedding:
+    """residue level features: hydropathy; volume; charge; polarity; a hydrogen bond donor or receptor
+    """
+
+    def __init__(self):
+        super(self).__init__()
+        self.hydropathy = {'#': 0, "I":4.5, "V":4.2, "L":3.8, "F":2.8, "C":2.5, "M":1.9, "A":1.8, "W":-0.9, "G":-0.4, "T":-0.7, "S":-0.8, "Y":-1.3, "P":-1.6, "H":-3.2, "N":-3.5, "D":-3.5, "Q":-3.5, "E":-3.5, "K":-3.9, "R":-4.5}
+        self.volume = {'#': 0, "G":60.1, "A":88.6, "S":89.0, "C":108.5, "D":111.1, "P":112.7, "N":114.1, "T":116.1, "E":138.4, "V":140.0, "Q":143.8, "H":153.2, "M":162.9, "I":166.7, "L":166.7, "K":168.6, "R":173.4, "F":189.9, "Y":193.6, "W":227.8}
+        self.charge = {**{'R':1, 'K':1, 'D':-1, 'E':-1, 'H':0.1}, **{x:0 for x in 'ABCFGIJLMNOPQSTUVWXYZ#'}}
+        self.polarity = {**{x:1 for x in 'RNDQEHKSTY'}, **{x:0 for x in "ACGILMFPWV#"}}
+        self.acceptor = {**{x:1 for x in 'DENQHSTY'}, **{x:0 for x in "RKWACGILMFPV#"}}
+        self.donor = {**{x:1 for x in 'RKWNQHSTY'}, **{x:0 for x in "DEACGILMFPV#"}}
+        self.embedding = torch.tensor([
+            [self.hydropathy[aa], self.volume[aa] / 100, self.charge[aa],
+            self.polarity[aa], self.acceptor[aa], self.donor[aa]]
+            for aa in ALPHABET
+        ]).cuda()
+
+    def to_rbf(self, D, D_min, D_max, stride):
+        D_count = int((D_max - D_min) / stride)
+        D_mu = torch.linspace(D_min, D_max, D_count).cuda()
+        D_mu = D_mu.view(1,1,-1)  # [1, 1, K]
+        D_expand = torch.unsqueeze(D, -1)  # [B, N, 1]
+        return torch.exp(-((D_expand - D_mu) / stride) ** 2)
+
+    def transform(self, aa_vecs):
+        return torch.cat([
+            self.to_rbf(aa_vecs[:, :, 0], -4.5, 4.5, 0.1),
+            self.to_rbf(aa_vecs[:, :, 1], 0, 2.2, 0.1),
+            self.to_rbf(aa_vecs[:, :, 2], -1.0, 1.0, 0.25),
+            torch.sigmoid(aa_vecs[:, :, 3:] * 6 - 3),
+        ], dim=-1)
+
+    def dim(self):
+        return 90 + 22 + 8 + 3
+
+    def forward(self, x, raw=False):
+        B, N = x.size(0), x.size(1)
+        aa_vecs = self.embedding[x.view(-1)].view(B, N, -1)
+        rbf_vecs = self.transform(aa_vecs)
+        return aa_vecs if raw else rbf_vecs
+
+    def soft_forward(self, x):
+        B, N = x.size(0), x.size(1)
+        aa_vecs = torch.matmul(x.reshape(B * N, -1), self.embedding).view(B, N, -1)
+        rbf_vecs = self.transform(aa_vecs)
+        return rbf_vecs
