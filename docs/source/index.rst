@@ -7,10 +7,4 @@ This project is to benchmark protein design.
 
    This project is under active development.
 
-Contents
---------
 
-.. toctree::
-
-   usage
-   api
