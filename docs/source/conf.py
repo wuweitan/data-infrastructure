@@ -4,7 +4,7 @@
 
 project = 'Data infrastructure'
 copyright = '2022, Shen group'
-author = 'Yuanfei'
+author = ''
 
 release = '0.1'
 version = '0.1.0'
